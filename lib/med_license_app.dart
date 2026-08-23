@@ -156,23 +156,29 @@ class QualificationCatalogEntry {
     required this.organization,
     required this.category,
     this.keywords = const [],
+    this.parentQualification,
   });
 
   final String name;
   final String organization;
   final String category;
   final List<String> keywords;
+  final String? parentQualification;
 
   bool matches(String query) {
     final searchableText = [
       name,
       organization,
       category,
+      parentQualification ?? '',
       ...keywords,
     ].join(' ').toLowerCase();
     return searchableText.contains(query.toLowerCase());
   }
 }
+
+const surgeryBaseQualificationName = '外科専門医';
+const internalMedicineBaseQualificationName = '内科専門医';
 
 const qualificationCatalog = <QualificationCatalogEntry>[
   QualificationCatalogEntry(
@@ -281,36 +287,42 @@ const qualificationCatalog = <QualificationCatalogEntry>[
     organization: '日本専門医機構／日本消化器外科学会',
     category: 'サブスペシャルティ',
     keywords: ['外科', '消化器', '胃腸', '腹部'],
+    parentQualification: surgeryBaseQualificationName,
   ),
   QualificationCatalogEntry(
     name: '呼吸器外科専門医',
     organization: '日本専門医機構／呼吸器外科専門医合同委員会',
     category: 'サブスペシャルティ',
     keywords: ['外科', '呼吸器', '胸部', '肺'],
+    parentQualification: surgeryBaseQualificationName,
   ),
   QualificationCatalogEntry(
     name: '心臓血管外科専門医',
     organization: '日本専門医機構／心臓血管外科専門医認定機構',
     category: 'サブスペシャルティ',
     keywords: ['外科', '心臓', '血管', '循環器'],
+    parentQualification: surgeryBaseQualificationName,
   ),
   QualificationCatalogEntry(
     name: '小児外科専門医',
     organization: '日本専門医機構／日本小児外科学会',
     category: 'サブスペシャルティ',
     keywords: ['外科', '小児', 'こども'],
+    parentQualification: surgeryBaseQualificationName,
   ),
   QualificationCatalogEntry(
     name: '乳腺外科専門医',
     organization: '日本専門医機構／日本乳癌学会',
     category: 'サブスペシャルティ',
     keywords: ['外科', '乳腺', '乳がん', '乳癌'],
+    parentQualification: surgeryBaseQualificationName,
   ),
   QualificationCatalogEntry(
     name: '内分泌外科専門医',
     organization: '日本専門医機構／日本内分泌外科学会',
     category: 'サブスペシャルティ',
     keywords: ['外科', '内分泌', '甲状腺', '副甲状腺', '副腎'],
+    parentQualification: surgeryBaseQualificationName,
   ),
   QualificationCatalogEntry(
     name: '乳腺専門医',
@@ -373,6 +385,13 @@ const qualificationCatalog = <QualificationCatalogEntry>[
     keywords: ['エコー', '超音波'],
   ),
 ];
+
+List<QualificationCatalogEntry> get surgicalSubspecialtyCatalog =>
+    qualificationCatalog
+        .where(
+          (entry) => entry.parentQualification == surgeryBaseQualificationName,
+        )
+        .toList(growable: false);
 
 class CreditBreakdownEntry {
   const CreditBreakdownEntry({
@@ -666,10 +685,10 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   final List<_QualificationDraft> _qualifications = [
     const _QualificationDraft(
       id: 1,
-      name: '超音波専門医',
-      organization: '日本超音波医学会',
-      licenseNumber: '1234567890',
-      deadline: '2026/12/31',
+      name: '',
+      organization: '',
+      licenseNumber: '',
+      deadline: '',
     ),
   ];
 
@@ -1167,7 +1186,7 @@ class _QualificationSetupPage extends StatelessWidget {
         Text('保有資格を登録', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),
         const Text(
-          '資格名・資格番号・次回更新期限を、公式資料または会員マイページで確認して入力します。',
+          '外科・内科は下のボタンからすぐ選べます。外科を選ぶと、関連するサブスペシャルティが表示されます。',
           style: TextStyle(color: Colors.blueGrey, fontSize: 15, height: 1.5),
         ),
         const SizedBox(height: 22),
@@ -1254,7 +1273,12 @@ class _SetupQualificationCard extends StatefulWidget {
 
 class _SetupQualificationCardState extends State<_SetupQualificationCard> {
   late final TextEditingController _organizationController;
+  TextEditingController? _qualificationController;
   QualificationCatalogEntry? _selectedEntry;
+  final Set<String> _selectedSubspecialtyNames = {};
+
+  bool get _showsSurgicalSubspecialties =>
+      _selectedEntry?.name == surgeryBaseQualificationName;
 
   @override
   void initState() {
@@ -1262,6 +1286,12 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
     _organizationController = TextEditingController(
       text: widget.draft.organization,
     );
+    for (final entry in qualificationCatalog) {
+      if (entry.name == widget.draft.name) {
+        _selectedEntry = entry;
+        break;
+      }
+    }
   }
 
   @override
@@ -1278,9 +1308,50 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
     return qualificationCatalog.where((entry) => entry.matches(query)).take(20);
   }
 
-  void _selectQualification(QualificationCatalogEntry entry) {
+  QualificationCatalogEntry _entryNamed(String name) {
+    return qualificationCatalog.firstWhere((entry) => entry.name == name);
+  }
+
+  void _selectQualification(
+    QualificationCatalogEntry entry, {
+    bool updateQualificationName = false,
+  }) {
+    if (updateQualificationName) {
+      _qualificationController?.value = TextEditingValue(
+        text: entry.name,
+        selection: TextSelection.collapsed(offset: entry.name.length),
+      );
+    }
     _organizationController.text = entry.organization;
-    setState(() => _selectedEntry = entry);
+    setState(() {
+      _selectedEntry = entry;
+      if (entry.name != surgeryBaseQualificationName) {
+        _selectedSubspecialtyNames.clear();
+      }
+    });
+  }
+
+  void _selectQuickQualification(String name) {
+    FocusScope.of(context).unfocus();
+    _selectQualification(_entryNamed(name), updateQualificationName: true);
+  }
+
+  void _handleQualificationTextChanged(String value) {
+    if (_selectedEntry?.name == value) return;
+    setState(() {
+      _selectedEntry = null;
+      _selectedSubspecialtyNames.clear();
+    });
+  }
+
+  void _setSubspecialtySelected(String name, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedSubspecialtyNames.add(name);
+      } else {
+        _selectedSubspecialtyNames.remove(name);
+      }
+    });
   }
 
   @override
@@ -1312,6 +1383,66 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
               ],
             ),
             const SizedBox(height: 10),
+            const Text(
+              'よく使う基本領域',
+              style: TextStyle(
+                color: _ink,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              '当てはまる方を1つ選んでください',
+              style: TextStyle(color: Colors.blueGrey, fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _PrimaryQualificationButton(
+                    key: const ValueKey('quick-primary-surgery'),
+                    title: surgeryBaseQualificationName,
+                    subtitle: '外科系',
+                    icon: Icons.medical_services_outlined,
+                    selected:
+                        _selectedEntry?.name == surgeryBaseQualificationName,
+                    onTap: () =>
+                        _selectQuickQualification(surgeryBaseQualificationName),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _PrimaryQualificationButton(
+                    key: const ValueKey('quick-primary-internal-medicine'),
+                    title: internalMedicineBaseQualificationName,
+                    subtitle: '内科系',
+                    icon: Icons.healing_outlined,
+                    selected:
+                        _selectedEntry?.name ==
+                        internalMedicineBaseQualificationName,
+                    onTap: () => _selectQuickQualification(
+                      internalMedicineBaseQualificationName,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Row(
+              children: [
+                Expanded(child: Divider()),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    'その他の資格は検索',
+                    style: TextStyle(color: Colors.blueGrey, fontSize: 12),
+                  ),
+                ),
+                Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 12),
             Autocomplete<QualificationCatalogEntry>(
               initialValue: TextEditingValue(text: widget.draft.name),
               displayStringForOption: (entry) => entry.name,
@@ -1319,18 +1450,15 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
               onSelected: _selectQualification,
               fieldViewBuilder:
                   (context, controller, focusNode, onFieldSubmitted) {
+                    _qualificationController = controller;
                     return TextFormField(
                       key: ValueKey('qualification-name-${widget.draft.id}'),
                       controller: controller,
                       focusNode: focusNode,
-                      onChanged: (value) {
-                        if (_selectedEntry?.name != value) {
-                          setState(() => _selectedEntry = null);
-                        }
-                      },
+                      onChanged: _handleQualificationTextChanged,
                       decoration: const InputDecoration(
                         labelText: '資格名（候補から選択）',
-                        hintText: '例：内科、循環器、超音波',
+                        hintText: '例：循環器、超音波、大腸肛門',
                         suffixIcon: Icon(Icons.search_rounded),
                       ),
                     );
@@ -1466,27 +1594,303 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                 helperText: '必要に応じて修正できます',
               ),
             ),
+            if (_showsSurgicalSubspecialties) ...[
+              const SizedBox(height: 18),
+              _SurgicalSubspecialtySection(
+                qualificationId: widget.draft.id,
+                entries: surgicalSubspecialtyCatalog,
+                selectedNames: _selectedSubspecialtyNames,
+                onChanged: _setSubspecialtySelected,
+              ),
+            ],
             const SizedBox(height: 12),
             TextFormField(
               initialValue: widget.draft.licenseNumber,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '資格番号（任意）',
-                hintText: '会員証・認定証を確認',
+              decoration: InputDecoration(
+                labelText: _selectedEntry == null
+                    ? '資格番号（任意）'
+                    : '${_selectedEntry!.name}の資格番号（任意）',
+                hintText: '認定証・会員マイページを確認',
               ),
             ),
             const SizedBox(height: 12),
             TextFormField(
               initialValue: widget.draft.deadline,
               keyboardType: TextInputType.datetime,
-              decoration: const InputDecoration(
-                labelText: '次回更新期限',
+              decoration: InputDecoration(
+                labelText: _selectedEntry == null
+                    ? '次回更新期限'
+                    : '${_selectedEntry!.name}の次回更新期限',
                 hintText: 'YYYY/MM/DD',
-                suffixIcon: Icon(Icons.event_outlined),
+                suffixIcon: const Icon(Icons.event_outlined),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PrimaryQualificationButton extends StatelessWidget {
+  const _PrimaryQualificationButton({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$titleを選択',
+      child: Material(
+        color: selected ? const Color(0xFFE1F2ED) : Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(15),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: selected ? _primary : _line,
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected ? _primary : const Color(0xFFEAF0ED),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(
+                    selected ? Icons.check_rounded : icon,
+                    color: selected ? Colors.white : _primary,
+                    size: 19,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: Colors.blueGrey,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SurgicalSubspecialtySection extends StatelessWidget {
+  const _SurgicalSubspecialtySection({
+    required this.qualificationId,
+    required this.entries,
+    required this.selectedNames,
+    required this.onChanged,
+  });
+
+  final int qualificationId;
+  final List<QualificationCatalogEntry> entries;
+  final Set<String> selectedNames;
+  final void Function(String name, bool selected) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('surgical-subspecialty-section'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F7F5),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: const Color(0xFFBED8D0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              _IconTile(
+                icon: Icons.account_tree_outlined,
+                color: _primary,
+                background: Color(0xFFDDEFE9),
+              ),
+              SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '外科のサブスペシャルティ',
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '保有している資格を複数選択できます',
+                      style: TextStyle(color: Colors.blueGrey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...entries.map((entry) {
+            final selected = selectedNames.contains(entry.name);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _SubspecialtyChoice(
+                key: ValueKey('subspecialty-$qualificationId-${entry.name}'),
+                entry: entry,
+                selected: selected,
+                onChanged: (value) => onChanged(entry.name, value),
+              ),
+            );
+          }),
+          const SizedBox(height: 2),
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: Colors.blueGrey,
+              ),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '日本専門医機構の領域一覧に基づく6領域です。更新方法は各団体の公式情報で確認してください。',
+                  style: TextStyle(
+                    color: Colors.blueGrey,
+                    fontSize: 11,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubspecialtyChoice extends StatelessWidget {
+  const _SubspecialtyChoice({
+    super.key,
+    required this.entry,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final QualificationCatalogEntry entry;
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: selected ? _primary : _line),
+      ),
+      child: Column(
+        children: [
+          CheckboxListTile(
+            value: selected,
+            onChanged: (value) => onChanged(value ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+            title: Text(
+              entry.name,
+              style: const TextStyle(
+                color: _ink,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            subtitle: Text(
+              entry.organization,
+              style: const TextStyle(
+                color: Colors.blueGrey,
+                fontSize: 11,
+                height: 1.35,
+              ),
+            ),
+          ),
+          if (selected) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+              child: Column(
+                children: [
+                  TextFormField(
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '資格番号（任意）',
+                      hintText: '認定証を確認',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    keyboardType: TextInputType.datetime,
+                    decoration: const InputDecoration(
+                      labelText: '次回更新期限',
+                      hintText: 'YYYY/MM/DD',
+                      suffixIcon: Icon(Icons.event_outlined),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

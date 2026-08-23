@@ -37,6 +37,12 @@ void main() {
         reason: '${expected.key}の認定団体が候補マスターと一致すること',
       );
     }
+
+    expect(
+      surgicalSubspecialtyCatalog.map((entry) => entry.name).toSet(),
+      {'消化器外科専門医', '呼吸器外科専門医', '心臓血管外科専門医', '小児外科専門医', '乳腺外科専門医', '内分泌外科専門医'},
+      reason: '日本専門医機構が掲載する外科系6領域だけを下位表示すること',
+    );
   });
 
   testWidgets('initial setup registers profile and qualification information', (
@@ -88,6 +94,59 @@ void main() {
     );
     expect(organization.controller?.text, '日本循環器学会');
     expect(find.text('認定団体を自動入力しました'), findsOneWidget);
+  });
+
+  testWidgets('surgery quick selection reveals verified subspecialties', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MedLicenseApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('設定を始める'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('次へ'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('quick-primary-internal-medicine')),
+    );
+    await tester.pumpAndSettle();
+    var organization = tester.widget<TextFormField>(
+      find.byKey(const ValueKey('qualification-organization-1')),
+    );
+    expect(organization.controller?.text, '日本専門医機構／日本内科学会');
+    expect(
+      find.byKey(const ValueKey('surgical-subspecialty-section')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('quick-primary-surgery')));
+    await tester.pumpAndSettle();
+    organization = tester.widget<TextFormField>(
+      find.byKey(const ValueKey('qualification-organization-1')),
+    );
+    expect(organization.controller?.text, '日本専門医機構／日本外科学会');
+    expect(find.text('外科のサブスペシャルティ'), findsOneWidget);
+    expect(find.text('消化器外科専門医'), findsOneWidget);
+    expect(find.text('呼吸器外科専門医'), findsOneWidget);
+    expect(find.text('心臓血管外科専門医'), findsOneWidget);
+    expect(find.text('小児外科専門医'), findsOneWidget);
+    expect(find.text('乳腺外科専門医'), findsOneWidget);
+    expect(find.text('内分泌外科専門医'), findsOneWidget);
+    expect(find.text('大腸肛門病専門医'), findsNothing);
+
+    final digestiveSurgery = find.byKey(
+      const ValueKey('subspecialty-1-消化器外科専門医'),
+    );
+    await tester.drag(
+      find.byKey(const ValueKey('setup-step-2')),
+      const Offset(0, -650),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(digestiveSurgery);
+    await tester.pumpAndSettle();
+    expect(find.text('資格番号（任意）'), findsOneWidget);
+    expect(find.text('次回更新期限'), findsOneWidget);
   });
 
   testWidgets('home shows qualification status and opens registration flow', (
