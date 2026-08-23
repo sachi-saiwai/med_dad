@@ -346,7 +346,19 @@ const qualificationCatalog = <QualificationCatalogEntry>[
     name: 'リハビリテーション科専門医',
     organization: '日本専門医機構／日本リハビリテーション医学会',
     category: '基本領域',
-    keywords: ['リハビリ', 'リハビリ科'],
+    keywords: ['リハビリ', 'リハビリ科', 'リハ科', 'rehabilitation'],
+  ),
+  QualificationCatalogEntry(
+    name: '認定臨床医',
+    organization: '日本リハビリテーション医学会',
+    category: '学会認定',
+    keywords: ['リハビリ', 'リハビリ科', 'リハ医学', '認定臨床医'],
+  ),
+  QualificationCatalogEntry(
+    name: '運動器リハビリテーション医',
+    organization: '日本整形外科学会',
+    category: '学会認定',
+    keywords: ['リハビリ', '運動器', '整形外科', '運動器リハビリテーション医'],
   ),
   QualificationCatalogEntry(
     name: '総合診療専門医',
@@ -1301,20 +1313,8 @@ class _ProfileSetupPage extends StatelessWidget {
         const SizedBox(height: 7),
         const TextField(
           decoration: InputDecoration(
-            hintText: '例：お父さん',
+            hintText: '例：田中 太郎',
             prefixIcon: Icon(Icons.person_outline_rounded),
-          ),
-        ),
-        const SizedBox(height: 18),
-        const Text(
-          '利用する端末',
-          style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 7),
-        const TextField(
-          decoration: InputDecoration(
-            hintText: '例：iPhone',
-            prefixIcon: Icon(Icons.smartphone_outlined),
           ),
         ),
         const SizedBox(height: 22),
@@ -1669,7 +1669,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
             _PrimaryQualificationButton(
               key: const ValueKey('quick-primary-other'),
               title: 'その他',
-              subtitle: '小児・循環器など診療分野から検索',
+              subtitle: '診療分野から検索',
               icon: Icons.grid_view_rounded,
               selected: _isOtherSelected,
               onTap: _selectOtherQualification,

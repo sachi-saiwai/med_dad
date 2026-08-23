@@ -107,6 +107,18 @@ void main() {
     expect(catalogByName['神経内科専門医']!.matches('脳神経'), isTrue);
   });
 
+  test('rehabilitation search contains related medical qualifications', () {
+    final rehabilitationNames = qualificationCatalog
+        .where((entry) => entry.matches('リハビリ'))
+        .map((entry) => entry.name)
+        .toSet();
+
+    expect(
+      rehabilitationNames,
+      containsAll({'リハビリテーション科専門医', '認定臨床医', '運動器リハビリテーション医'}),
+    );
+  });
+
   testWidgets('initial setup registers profile and qualification information', (
     tester,
   ) async {
@@ -118,6 +130,8 @@ void main() {
     await tester.tap(find.text('設定を始める'));
     await tester.pumpAndSettle();
     expect(find.text('本人情報を登録'), findsOneWidget);
+    expect(find.text('例：田中 太郎'), findsOneWidget);
+    expect(find.text('利用する端末'), findsNothing);
 
     await tester.tap(find.text('次へ'));
     await tester.pumpAndSettle();
