@@ -33,6 +33,12 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Keep the production Flutter web bundle for the static Vercel preview.
+!/build/
+/build/*
+!/build/web/
+!/build/web/**
+
 # Symbolication related
 app.*.symbols
 
