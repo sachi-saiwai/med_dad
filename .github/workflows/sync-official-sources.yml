@@ -11,6 +11,9 @@ permissions:
 
 jobs:
   sync:
+    # Vercel Cron works independently. Keep this optional backup dormant until
+    # the repository variable and matching secret are configured in GitHub.
+    if: ${{ vars.SYNC_ENDPOINT != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
