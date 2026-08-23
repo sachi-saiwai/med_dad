@@ -9,6 +9,36 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  test('surgical qualification catalog contains verified specialties', () {
+    final organizationsByName = {
+      for (final entry in qualificationCatalog) entry.name: entry.organization,
+    };
+    const expectedOrganizations = {
+      '消化器外科専門医': '日本専門医機構／日本消化器外科学会',
+      '呼吸器外科専門医': '日本専門医機構／呼吸器外科専門医合同委員会',
+      '心臓血管外科専門医': '日本専門医機構／心臓血管外科専門医認定機構',
+      '小児外科専門医': '日本専門医機構／日本小児外科学会',
+      '乳腺外科専門医': '日本専門医機構／日本乳癌学会',
+      '内分泌外科専門医': '日本専門医機構／日本内分泌外科学会',
+      '乳腺専門医': '日本乳癌学会',
+      '大腸肛門病専門医': '日本大腸肛門病学会',
+      '肝胆膵外科高度技能専門医': '日本肝胆膵外科学会',
+      '内視鏡外科技術認定医': '日本内視鏡外科学会',
+      '脈管専門医': '日本脈管学会',
+      '移植認定医': '日本移植学会',
+      'がん治療認定医': '日本がん治療認定医機構',
+    };
+
+    expect(organizationsByName, containsPair('外科専門医', '日本専門医機構／日本外科学会'));
+    for (final expected in expectedOrganizations.entries) {
+      expect(
+        organizationsByName,
+        containsPair(expected.key, expected.value),
+        reason: '${expected.key}の認定団体が候補マスターと一致すること',
+      );
+    }
+  });
+
   testWidgets('initial setup registers profile and qualification information', (
     tester,
   ) async {
@@ -29,6 +59,35 @@ void main() {
     await tester.tap(find.text('登録して始める'));
     await tester.pumpAndSettle();
     expect(find.text('資格更新の状況'), findsOneWidget);
+  });
+
+  testWidgets('qualification suggestion autofills its organization', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MedLicenseApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('設定を始める'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('次へ'));
+    await tester.pumpAndSettle();
+
+    final qualificationName = find.byKey(
+      const ValueKey('qualification-name-1'),
+    );
+    await tester.ensureVisible(qualificationName);
+    await tester.enterText(qualificationName, '循環器');
+    await tester.pumpAndSettle();
+
+    expect(find.text('循環器専門医'), findsOneWidget);
+    await tester.tap(find.text('循環器専門医'));
+    await tester.pumpAndSettle();
+
+    final organization = tester.widget<TextFormField>(
+      find.byKey(const ValueKey('qualification-organization-1')),
+    );
+    expect(organization.controller?.text, '日本循環器学会');
+    expect(find.text('認定団体を自動入力しました'), findsOneWidget);
   });
 
   testWidgets('home shows qualification status and opens registration flow', (

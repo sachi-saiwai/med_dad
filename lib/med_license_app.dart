@@ -150,6 +150,230 @@ class Qualification {
   double get progress => (total / requiredTotal).clamp(0, 1);
 }
 
+class QualificationCatalogEntry {
+  const QualificationCatalogEntry({
+    required this.name,
+    required this.organization,
+    required this.category,
+    this.keywords = const [],
+  });
+
+  final String name;
+  final String organization;
+  final String category;
+  final List<String> keywords;
+
+  bool matches(String query) {
+    final searchableText = [
+      name,
+      organization,
+      category,
+      ...keywords,
+    ].join(' ').toLowerCase();
+    return searchableText.contains(query.toLowerCase());
+  }
+}
+
+const qualificationCatalog = <QualificationCatalogEntry>[
+  QualificationCatalogEntry(
+    name: '内科専門医',
+    organization: '日本専門医機構／日本内科学会',
+    category: '基本領域',
+    keywords: ['内科', 'ないか'],
+  ),
+  QualificationCatalogEntry(
+    name: '小児科専門医',
+    organization: '日本専門医機構／日本小児科学会',
+    category: '基本領域',
+    keywords: ['小児科', 'しょうにか'],
+  ),
+  QualificationCatalogEntry(
+    name: '皮膚科専門医',
+    organization: '日本専門医機構／日本皮膚科学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '精神科専門医',
+    organization: '日本専門医機構／日本精神神経学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '外科専門医',
+    organization: '日本専門医機構／日本外科学会',
+    category: '基本領域',
+    keywords: ['外科', 'げか'],
+  ),
+  QualificationCatalogEntry(
+    name: '整形外科専門医',
+    organization: '日本専門医機構／日本整形外科学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '産婦人科専門医',
+    organization: '日本専門医機構／日本産科婦人科学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '眼科専門医',
+    organization: '日本専門医機構／日本眼科学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '耳鼻咽喉科専門医',
+    organization: '日本専門医機構／日本耳鼻咽喉科頭頸部外科学会',
+    category: '基本領域',
+    keywords: ['耳鼻科'],
+  ),
+  QualificationCatalogEntry(
+    name: '泌尿器科専門医',
+    organization: '日本専門医機構／日本泌尿器科学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '脳神経外科専門医',
+    organization: '日本専門医機構／日本脳神経外科学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '放射線科専門医',
+    organization: '日本専門医機構／日本医学放射線学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '麻酔科専門医',
+    organization: '日本専門医機構／日本麻酔科学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '病理専門医',
+    organization: '日本専門医機構／日本病理学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '臨床検査専門医',
+    organization: '日本専門医機構／日本臨床検査医学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '救急科専門医',
+    organization: '日本専門医機構／日本救急医学会',
+    category: '基本領域',
+    keywords: ['救急医'],
+  ),
+  QualificationCatalogEntry(
+    name: '形成外科専門医',
+    organization: '日本専門医機構／日本形成外科学会',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: 'リハビリテーション科専門医',
+    organization: '日本専門医機構／日本リハビリテーション医学会',
+    category: '基本領域',
+    keywords: ['リハビリ', 'リハビリ科'],
+  ),
+  QualificationCatalogEntry(
+    name: '総合診療専門医',
+    organization: '日本専門医機構',
+    category: '基本領域',
+  ),
+  QualificationCatalogEntry(
+    name: '消化器外科専門医',
+    organization: '日本専門医機構／日本消化器外科学会',
+    category: 'サブスペシャルティ',
+    keywords: ['外科', '消化器', '胃腸', '腹部'],
+  ),
+  QualificationCatalogEntry(
+    name: '呼吸器外科専門医',
+    organization: '日本専門医機構／呼吸器外科専門医合同委員会',
+    category: 'サブスペシャルティ',
+    keywords: ['外科', '呼吸器', '胸部', '肺'],
+  ),
+  QualificationCatalogEntry(
+    name: '心臓血管外科専門医',
+    organization: '日本専門医機構／心臓血管外科専門医認定機構',
+    category: 'サブスペシャルティ',
+    keywords: ['外科', '心臓', '血管', '循環器'],
+  ),
+  QualificationCatalogEntry(
+    name: '小児外科専門医',
+    organization: '日本専門医機構／日本小児外科学会',
+    category: 'サブスペシャルティ',
+    keywords: ['外科', '小児', 'こども'],
+  ),
+  QualificationCatalogEntry(
+    name: '乳腺外科専門医',
+    organization: '日本専門医機構／日本乳癌学会',
+    category: 'サブスペシャルティ',
+    keywords: ['外科', '乳腺', '乳がん', '乳癌'],
+  ),
+  QualificationCatalogEntry(
+    name: '内分泌外科専門医',
+    organization: '日本専門医機構／日本内分泌外科学会',
+    category: 'サブスペシャルティ',
+    keywords: ['外科', '内分泌', '甲状腺', '副甲状腺', '副腎'],
+  ),
+  QualificationCatalogEntry(
+    name: '乳腺専門医',
+    organization: '日本乳癌学会',
+    category: '学会認定（旧制度）',
+    keywords: ['外科', '乳腺', '乳がん', '乳癌'],
+  ),
+  QualificationCatalogEntry(
+    name: '大腸肛門病専門医',
+    organization: '日本大腸肛門病学会',
+    category: '学会認定',
+    keywords: ['外科', '大腸', '肛門', '消化器'],
+  ),
+  QualificationCatalogEntry(
+    name: '肝胆膵外科高度技能専門医',
+    organization: '日本肝胆膵外科学会',
+    category: '高度技能',
+    keywords: ['外科', '肝臓', '胆道', '膵臓', '消化器'],
+  ),
+  QualificationCatalogEntry(
+    name: '内視鏡外科技術認定医',
+    organization: '日本内視鏡外科学会',
+    category: '技術認定',
+    keywords: ['外科', '内視鏡', '腹腔鏡', 'ロボット'],
+  ),
+  QualificationCatalogEntry(
+    name: '脈管専門医',
+    organization: '日本脈管学会',
+    category: '学会認定',
+    keywords: ['外科', '血管', '脈管'],
+  ),
+  QualificationCatalogEntry(
+    name: '移植認定医',
+    organization: '日本移植学会',
+    category: '学会認定',
+    keywords: ['外科', '移植', '臓器移植'],
+  ),
+  QualificationCatalogEntry(
+    name: 'がん治療認定医',
+    organization: '日本がん治療認定医機構',
+    category: '機構認定',
+    keywords: ['外科', 'がん', '癌', '腫瘍'],
+  ),
+  QualificationCatalogEntry(
+    name: '総合内科専門医',
+    organization: '日本内科学会',
+    category: '学会認定',
+    keywords: ['内科', '総合内科'],
+  ),
+  QualificationCatalogEntry(
+    name: '循環器専門医',
+    organization: '日本循環器学会',
+    category: '学会認定',
+    keywords: ['心臓', '循環器'],
+  ),
+  QualificationCatalogEntry(
+    name: '超音波専門医',
+    organization: '日本超音波医学会',
+    category: '学会認定',
+    keywords: ['エコー', '超音波'],
+  ),
+];
+
 class CreditBreakdownEntry {
   const CreditBreakdownEntry({
     required this.title,
@@ -173,7 +397,7 @@ class CreditBreakdownEntry {
 const sampleQualifications = <Qualification>[
   Qualification(
     name: '超音波専門医',
-    organization: '認定団体（サンプル）',
+    organization: '日本超音波医学会（サンプル）',
     deadline: '2026年12月31日',
     remainingDays: 131,
     state: QualificationState.almostDue,
@@ -204,7 +428,7 @@ const sampleQualifications = <Qualification>[
   ),
   Qualification(
     name: '内科専門医',
-    organization: '日本専門医機構（サンプル）',
+    organization: '日本専門医機構／日本内科学会（サンプル）',
     deadline: '2027年3月31日',
     remainingDays: 221,
     state: QualificationState.needsAttention,
@@ -235,7 +459,7 @@ const sampleQualifications = <Qualification>[
   ),
   Qualification(
     name: '循環器専門医',
-    organization: '認定団体（サンプル）',
+    organization: '日本循環器学会（サンプル）',
     deadline: '2028年3月31日',
     remainingDays: 587,
     state: QualificationState.onTrack,
@@ -443,7 +667,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     const _QualificationDraft(
       id: 1,
       name: '超音波専門医',
-      organization: '認定団体（サンプル）',
+      organization: '日本超音波医学会',
       licenseNumber: '1234567890',
       deadline: '2026/12/31',
     ),
@@ -1009,7 +1233,7 @@ class _QualificationSetupPage extends StatelessWidget {
   }
 }
 
-class _SetupQualificationCard extends StatelessWidget {
+class _SetupQualificationCard extends StatefulWidget {
   const _SetupQualificationCard({
     super.key,
     required this.number,
@@ -1024,6 +1248,42 @@ class _SetupQualificationCard extends StatelessWidget {
   final VoidCallback onRemove;
 
   @override
+  State<_SetupQualificationCard> createState() =>
+      _SetupQualificationCardState();
+}
+
+class _SetupQualificationCardState extends State<_SetupQualificationCard> {
+  late final TextEditingController _organizationController;
+  QualificationCatalogEntry? _selectedEntry;
+
+  @override
+  void initState() {
+    super.initState();
+    _organizationController = TextEditingController(
+      text: widget.draft.organization,
+    );
+  }
+
+  @override
+  void dispose() {
+    _organizationController.dispose();
+    super.dispose();
+  }
+
+  Iterable<QualificationCatalogEntry> _findOptions(
+    TextEditingValue textEditingValue,
+  ) {
+    final query = textEditingValue.text.trim();
+    if (query.isEmpty) return qualificationCatalog.take(8);
+    return qualificationCatalog.where((entry) => entry.matches(query)).take(20);
+  }
+
+  void _selectQualification(QualificationCatalogEntry entry) {
+    _organizationController.text = entry.organization;
+    setState(() => _selectedEntry = entry);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
@@ -1035,7 +1295,7 @@ class _SetupQualificationCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '資格 $number',
+                    '資格 ${widget.number}',
                     style: const TextStyle(
                       color: _ink,
                       fontSize: 17,
@@ -1043,27 +1303,172 @@ class _SetupQualificationCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (canRemove)
+                if (widget.canRemove)
                   IconButton(
                     tooltip: '資格を削除',
-                    onPressed: onRemove,
+                    onPressed: widget.onRemove,
                     icon: const Icon(Icons.delete_outline_rounded),
                   ),
               ],
             ),
             const SizedBox(height: 10),
-            TextFormField(
-              initialValue: draft.name,
-              decoration: const InputDecoration(labelText: '資格名'),
+            Autocomplete<QualificationCatalogEntry>(
+              initialValue: TextEditingValue(text: widget.draft.name),
+              displayStringForOption: (entry) => entry.name,
+              optionsBuilder: _findOptions,
+              onSelected: _selectQualification,
+              fieldViewBuilder:
+                  (context, controller, focusNode, onFieldSubmitted) {
+                    return TextFormField(
+                      key: ValueKey('qualification-name-${widget.draft.id}'),
+                      controller: controller,
+                      focusNode: focusNode,
+                      onChanged: (value) {
+                        if (_selectedEntry?.name != value) {
+                          setState(() => _selectedEntry = null);
+                        }
+                      },
+                      decoration: const InputDecoration(
+                        labelText: '資格名（候補から選択）',
+                        hintText: '例：内科、循環器、超音波',
+                        suffixIcon: Icon(Icons.search_rounded),
+                      ),
+                    );
+                  },
+              optionsViewBuilder: (context, onSelected, options) {
+                final entries = options.toList();
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: 520,
+                        maxHeight: 300,
+                      ),
+                      child: ListView.separated(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: entries.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final entry = entries[index];
+                          return InkWell(
+                            onTap: () => onSelected(entry),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          entry.name,
+                                          style: const TextStyle(
+                                            color: _ink,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFE5F2EF),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          entry.category,
+                                          style: const TextStyle(
+                                            color: _primary,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    entry.organization,
+                                    style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 7),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: _selectedEntry == null
+                  ? const Row(
+                      key: ValueKey('qualification-search-hint'),
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 16,
+                          color: Colors.blueGrey,
+                        ),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '候補を選ぶと認定団体を自動入力します',
+                            style: TextStyle(
+                              color: Colors.blueGrey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Row(
+                      key: ValueKey('organization-autofilled'),
+                      children: [
+                        Icon(Icons.check_circle, size: 16, color: _primary),
+                        SizedBox(width: 6),
+                        Text(
+                          '認定団体を自動入力しました',
+                          style: TextStyle(
+                            color: _primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
             const SizedBox(height: 12),
             TextFormField(
-              initialValue: draft.organization,
-              decoration: const InputDecoration(labelText: '認定団体'),
+              key: ValueKey('qualification-organization-${widget.draft.id}'),
+              controller: _organizationController,
+              decoration: const InputDecoration(
+                labelText: '認定団体',
+                helperText: '必要に応じて修正できます',
+              ),
             ),
             const SizedBox(height: 12),
             TextFormField(
-              initialValue: draft.licenseNumber,
+              initialValue: widget.draft.licenseNumber,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: '資格番号（任意）',
@@ -1072,7 +1477,7 @@ class _SetupQualificationCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             TextFormField(
-              initialValue: draft.deadline,
+              initialValue: widget.draft.deadline,
               keyboardType: TextInputType.datetime,
               decoration: const InputDecoration(
                 labelText: '次回更新期限',
