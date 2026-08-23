@@ -165,16 +165,39 @@ class QualificationCatalogEntry {
   final List<String> keywords;
   final String? parentQualification;
 
-  bool matches(String query) {
-    final searchableText = [
-      name,
-      organization,
-      category,
-      parentQualification ?? '',
-      ...keywords,
-    ].join(' ').toLowerCase();
-    return searchableText.contains(query.toLowerCase());
+  int? matchScore(String query) {
+    final normalizedQuery = _normalizeSearchText(query);
+    if (normalizedQuery.isEmpty) return 0;
+
+    final normalizedName = _normalizeSearchText(name);
+    if (normalizedName.startsWith(normalizedQuery)) return 0;
+
+    final normalizedKeywords = keywords.map(_normalizeSearchText);
+    if (normalizedKeywords.any(
+      (keyword) => keyword.startsWith(normalizedQuery),
+    )) {
+      return 1;
+    }
+    if (normalizedName.contains(normalizedQuery)) return 2;
+    if (normalizedKeywords.any(
+      (keyword) => keyword.contains(normalizedQuery),
+    )) {
+      return 3;
+    }
+
+    final supplementaryText = _normalizeSearchText(
+      '$organization $category ${parentQualification ?? ''}',
+    );
+    return supplementaryText.contains(normalizedQuery) ? 4 : null;
   }
+
+  bool matches(String query) {
+    return matchScore(query) != null;
+  }
+}
+
+String _normalizeSearchText(String value) {
+  return value.toLowerCase().replaceAll(RegExp(r'[\s　・･（）()/／ー_-]'), '');
 }
 
 const surgeryBaseQualificationName = '外科専門医';
@@ -191,7 +214,55 @@ const qualificationCatalog = <QualificationCatalogEntry>[
     name: '小児科専門医',
     organization: '日本専門医機構／日本小児科学会',
     category: '基本領域',
-    keywords: ['小児科', 'しょうにか'],
+    keywords: ['小児科', '小児', 'こども', 'しょうに', 'しょうにか'],
+  ),
+  QualificationCatalogEntry(
+    name: '小児神経専門医',
+    organization: '日本専門医機構／日本小児神経学会',
+    category: 'サブスペシャルティ',
+    keywords: ['小児', 'こども', 'しょうに', '神経', '発達', 'てんかん'],
+    parentQualification: '小児科専門医',
+  ),
+  QualificationCatalogEntry(
+    name: '小児循環器専門医',
+    organization: '日本専門医機構／日本小児循環器学会',
+    category: 'サブスペシャルティ',
+    keywords: ['小児', 'こども', 'しょうに', '循環器', '心臓', '先天性心疾患'],
+    parentQualification: '小児科専門医',
+  ),
+  QualificationCatalogEntry(
+    name: '内分泌代謝科（小児科）専門医',
+    organization: '日本内分泌学会',
+    category: '学会認定',
+    keywords: ['小児', 'こども', 'しょうに', '小児内分泌', '内分泌', '成長', '低身長'],
+    parentQualification: '小児科専門医',
+  ),
+  QualificationCatalogEntry(
+    name: '小児血液・がん専門医',
+    organization: '日本小児血液・がん学会',
+    category: '学会認定',
+    keywords: ['小児', 'こども', 'しょうに', '血液', 'がん', '癌', '腫瘍'],
+    parentQualification: '小児科専門医',
+  ),
+  QualificationCatalogEntry(
+    name: '新生児専門医',
+    organization: '日本周産期・新生児医学会',
+    category: '学会認定',
+    keywords: ['小児', 'こども', 'しょうに', '新生児', '周産期', 'NICU'],
+    parentQualification: '小児科専門医',
+  ),
+  QualificationCatalogEntry(
+    name: '小児感染症認定指導医（専門医）',
+    organization: '日本小児感染症学会',
+    category: '学会認定',
+    keywords: ['小児', 'こども', 'しょうに', '感染症', 'ワクチン'],
+    parentQualification: '小児科専門医',
+  ),
+  QualificationCatalogEntry(
+    name: 'アレルギー専門医',
+    organization: '日本アレルギー学会',
+    category: '学会認定',
+    keywords: ['小児', 'こども', 'しょうに', '小児科', 'アレルギー', '喘息', '食物アレルギー'],
   ),
   QualificationCatalogEntry(
     name: '皮膚科専門医',
@@ -283,6 +354,135 @@ const qualificationCatalog = <QualificationCatalogEntry>[
     category: '基本領域',
   ),
   QualificationCatalogEntry(
+    name: '消化器病専門医',
+    organization: '日本消化器病学会',
+    category: 'サブスペシャルティ',
+    keywords: ['消化器内科', '消化器', '胃腸', 'しょうかき'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '呼吸器専門医',
+    organization: '日本呼吸器学会',
+    category: 'サブスペシャルティ',
+    keywords: ['呼吸器内科', '呼吸器', '肺', 'こきゅうき'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '血液専門医',
+    organization: '日本血液学会',
+    category: 'サブスペシャルティ',
+    keywords: ['血液内科', '血液', '造血', 'けつえき'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '内分泌代謝・糖尿病内科専門医',
+    organization: '日本専門医機構／日本内分泌学会・日本糖尿病学会',
+    category: 'サブスペシャルティ（新制度）',
+    keywords: ['内分泌', '代謝', '糖尿病', '内分泌内科', 'ないぶんぴつ', 'とうにょうびょう'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '内分泌代謝科専門医',
+    organization: '日本内分泌学会',
+    category: '学会認定',
+    keywords: ['内分泌', '代謝', '内分泌内科', 'ないぶんぴつ'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '糖尿病専門医',
+    organization: '日本糖尿病学会',
+    category: '学会認定',
+    keywords: ['糖尿病内科', '糖尿病', '代謝', 'とうにょうびょう'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '腎臓専門医',
+    organization: '日本腎臓学会',
+    category: 'サブスペシャルティ',
+    keywords: ['腎臓内科', '腎臓', '腎', '透析', 'じんぞう'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '肝臓専門医',
+    organization: '日本肝臓学会',
+    category: 'サブスペシャルティ',
+    keywords: ['肝臓内科', '肝臓', '肝', 'かんぞう'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '感染症専門医',
+    organization: '日本感染症学会',
+    category: 'サブスペシャルティ',
+    keywords: ['感染症内科', '感染症', 'かんせんしょう'],
+  ),
+  QualificationCatalogEntry(
+    name: '老年科専門医',
+    organization: '日本老年医学会',
+    category: 'サブスペシャルティ',
+    keywords: ['老年内科', '高齢者', '老年', 'ろうねん'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '神経内科専門医',
+    organization: '日本神経学会',
+    category: 'サブスペシャルティ',
+    keywords: ['脳神経内科', '脳神経', '神経', 'しんけい'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: 'リウマチ専門医',
+    organization: '日本リウマチ学会',
+    category: 'サブスペシャルティ',
+    keywords: ['膠原病', 'リウマチ内科', 'りうまち'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: '消化器内視鏡専門医',
+    organization: '日本消化器内視鏡学会',
+    category: 'サブスペシャルティ',
+    keywords: ['消化器', '内視鏡', '胃カメラ', '大腸カメラ', 'しょうかき'],
+    parentQualification: internalMedicineBaseQualificationName,
+  ),
+  QualificationCatalogEntry(
+    name: 'がん薬物療法専門医',
+    organization: '日本臨床腫瘍学会',
+    category: 'サブスペシャルティ',
+    keywords: ['腫瘍内科', 'がん', '癌', '抗がん剤', '化学療法'],
+  ),
+  QualificationCatalogEntry(
+    name: '放射線診断専門医',
+    organization: '日本専門医機構／日本医学放射線学会',
+    category: 'サブスペシャルティ',
+    keywords: ['放射線', '画像診断', 'CT', 'MRI', 'ほうしゃせん'],
+    parentQualification: '放射線科専門医',
+  ),
+  QualificationCatalogEntry(
+    name: '放射線治療専門医',
+    organization: '日本専門医機構／日本医学放射線学会・日本放射線腫瘍学会',
+    category: 'サブスペシャルティ',
+    keywords: ['放射線', '放射線治療', '腫瘍', 'ほうしゃせん'],
+    parentQualification: '放射線科専門医',
+  ),
+  QualificationCatalogEntry(
+    name: '放射線カテーテル治療専門医',
+    organization: '日本専門医機構／日本IVR学会',
+    category: 'サブスペシャルティ',
+    keywords: ['放射線', 'カテーテル', 'IVR', '画像下治療', 'ほうしゃせん'],
+    parentQualification: '放射線科専門医',
+  ),
+  QualificationCatalogEntry(
+    name: '集中治療科専門医',
+    organization: '日本専門医機構／日本集中治療医学会',
+    category: 'サブスペシャルティ',
+    keywords: ['集中治療', 'ICU', '救急', 'しゅうちゅう'],
+  ),
+  QualificationCatalogEntry(
+    name: '脊椎脊髄外科専門医',
+    organization: '日本専門医機構／脊椎脊髄外科専門医委員会',
+    category: 'サブスペシャルティ',
+    keywords: ['脊椎', '脊髄', '背骨', 'せきつい', 'せきずい'],
+  ),
+  QualificationCatalogEntry(
     name: '消化器外科専門医',
     organization: '日本専門医機構／日本消化器外科学会',
     category: 'サブスペシャルティ',
@@ -307,7 +507,7 @@ const qualificationCatalog = <QualificationCatalogEntry>[
     name: '小児外科専門医',
     organization: '日本専門医機構／日本小児外科学会',
     category: 'サブスペシャルティ',
-    keywords: ['外科', '小児', 'こども'],
+    keywords: ['外科', '小児', 'こども', 'しょうに'],
     parentQualification: surgeryBaseQualificationName,
   ),
   QualificationCatalogEntry(
@@ -1186,7 +1386,7 @@ class _QualificationSetupPage extends StatelessWidget {
         Text('保有資格を登録', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),
         const Text(
-          '外科・内科は下のボタンからすぐ選べます。外科を選ぶと、関連するサブスペシャルティが表示されます。',
+          '外科・内科は下のボタンからすぐ選べます。それ以外は「その他」から診療分野で検索できます。',
           style: TextStyle(color: Colors.blueGrey, fontSize: 15, height: 1.5),
         ),
         const SizedBox(height: 22),
@@ -1274,7 +1474,9 @@ class _SetupQualificationCard extends StatefulWidget {
 class _SetupQualificationCardState extends State<_SetupQualificationCard> {
   late final TextEditingController _organizationController;
   TextEditingController? _qualificationController;
+  FocusNode? _qualificationFocusNode;
   QualificationCatalogEntry? _selectedEntry;
+  bool _isOtherSelected = false;
   final Set<String> _selectedSubspecialtyNames = {};
 
   bool get _showsSurgicalSubspecialties =>
@@ -1289,8 +1491,14 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
     for (final entry in qualificationCatalog) {
       if (entry.name == widget.draft.name) {
         _selectedEntry = entry;
+        _isOtherSelected =
+            entry.name != surgeryBaseQualificationName &&
+            entry.name != internalMedicineBaseQualificationName;
         break;
       }
+    }
+    if (_selectedEntry == null && widget.draft.name.trim().isNotEmpty) {
+      _isOtherSelected = true;
     }
   }
 
@@ -1304,8 +1512,20 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
     TextEditingValue textEditingValue,
   ) {
     final query = textEditingValue.text.trim();
-    if (query.isEmpty) return qualificationCatalog.take(8);
-    return qualificationCatalog.where((entry) => entry.matches(query)).take(20);
+    if (query.isEmpty) return qualificationCatalog.take(12);
+    final options = qualificationCatalog
+        .where((entry) => entry.matches(query))
+        .toList();
+    options.sort((a, b) {
+      final scoreComparison = a
+          .matchScore(query)!
+          .compareTo(b.matchScore(query)!);
+      if (scoreComparison != 0) return scoreComparison;
+      return qualificationCatalog
+          .indexOf(a)
+          .compareTo(qualificationCatalog.indexOf(b));
+    });
+    return options.take(50);
   }
 
   QualificationCatalogEntry _entryNamed(String name) {
@@ -1325,6 +1545,9 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
     _organizationController.text = entry.organization;
     setState(() {
       _selectedEntry = entry;
+      _isOtherSelected =
+          entry.name != surgeryBaseQualificationName &&
+          entry.name != internalMedicineBaseQualificationName;
       if (entry.name != surgeryBaseQualificationName) {
         _selectedSubspecialtyNames.clear();
       }
@@ -1336,9 +1559,23 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
     _selectQualification(_entryNamed(name), updateQualificationName: true);
   }
 
+  void _selectOtherQualification() {
+    _qualificationController?.clear();
+    _organizationController.clear();
+    setState(() {
+      _isOtherSelected = true;
+      _selectedEntry = null;
+      _selectedSubspecialtyNames.clear();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _qualificationFocusNode?.requestFocus();
+    });
+  }
+
   void _handleQualificationTextChanged(String value) {
     if (_selectedEntry?.name == value) return;
     setState(() {
+      _isOtherSelected = true;
       _selectedEntry = null;
       _selectedSubspecialtyNames.clear();
     });
@@ -1428,6 +1665,15 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            _PrimaryQualificationButton(
+              key: const ValueKey('quick-primary-other'),
+              title: 'その他',
+              subtitle: '小児・循環器など診療分野から検索',
+              icon: Icons.grid_view_rounded,
+              selected: _isOtherSelected,
+              onTap: _selectOtherQualification,
+            ),
             const SizedBox(height: 16),
             const Row(
               children: [
@@ -1435,7 +1681,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 10),
                   child: Text(
-                    'その他の資格は検索',
+                    '資格名・診療分野から検索',
                     style: TextStyle(color: Colors.blueGrey, fontSize: 12),
                   ),
                 ),
@@ -1451,6 +1697,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
               fieldViewBuilder:
                   (context, controller, focusNode, onFieldSubmitted) {
                     _qualificationController = controller;
+                    _qualificationFocusNode = focusNode;
                     return TextFormField(
                       key: ValueKey('qualification-name-${widget.draft.id}'),
                       controller: controller,
@@ -1458,7 +1705,8 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                       onChanged: _handleQualificationTextChanged,
                       decoration: const InputDecoration(
                         labelText: '資格名（候補から選択）',
-                        hintText: '例：循環器、超音波、大腸肛門',
+                        hintText: '例：小児、循環器、超音波',
+                        helperText: '資格名の先頭1文字から検索できます',
                         suffixIcon: Icon(Icons.search_rounded),
                       ),
                     );

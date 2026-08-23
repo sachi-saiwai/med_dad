@@ -45,6 +45,68 @@ void main() {
     );
   });
 
+  test('pediatric search contains verified related qualifications', () {
+    final pediatricNames = qualificationCatalog
+        .where((entry) => entry.matches('小児'))
+        .map((entry) => entry.name)
+        .toSet();
+
+    expect(
+      pediatricNames,
+      containsAll({
+        '小児科専門医',
+        '小児外科専門医',
+        '小児神経専門医',
+        '小児循環器専門医',
+        '内分泌代謝科（小児科）専門医',
+        '小児血液・がん専門医',
+        '新生児専門医',
+        '小児感染症認定指導医（専門医）',
+        'アレルギー専門医',
+      }),
+    );
+    expect(
+      qualificationCatalog
+          .singleWhere((entry) => entry.name == '内分泌代謝科（小児科）専門医')
+          .matches('小児内分泌'),
+      isTrue,
+    );
+  });
+
+  test('catalog covers official specialist fields with prefix matching', () {
+    final catalogByName = {
+      for (final entry in qualificationCatalog) entry.name: entry,
+    };
+    const expectedSpecialists = {
+      '消化器病専門医',
+      '循環器専門医',
+      '呼吸器専門医',
+      '血液専門医',
+      '内分泌代謝科専門医',
+      '糖尿病専門医',
+      '腎臓専門医',
+      '肝臓専門医',
+      'アレルギー専門医',
+      '感染症専門医',
+      '老年科専門医',
+      '神経内科専門医',
+      'リウマチ専門医',
+      '消化器内視鏡専門医',
+      'がん薬物療法専門医',
+      '放射線診断専門医',
+      '放射線治療専門医',
+      '放射線カテーテル治療専門医',
+      '集中治療科専門医',
+      '脊椎脊髄外科専門医',
+    };
+
+    expect(catalogByName.keys, containsAll(expectedSpecialists));
+    expect(catalogByName['消化器病専門医']!.matchScore('消'), 0);
+    expect(catalogByName['呼吸器専門医']!.matchScore('呼吸'), 0);
+    expect(catalogByName['放射線診断専門医']!.matchScore('放射'), 0);
+    expect(catalogByName['神経内科専門医']!.matches('脳神経'), isTrue);
+  });
+
   testWidgets('initial setup registers profile and qualification information', (
     tester,
   ) async {
@@ -94,6 +156,64 @@ void main() {
     );
     expect(organization.controller?.text, '日本循環器学会');
     expect(find.text('認定団体を自動入力しました'), findsOneWidget);
+  });
+
+  testWidgets('other selection searches many pediatric qualifications', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MedLicenseApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('設定を始める'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('次へ'));
+    await tester.pumpAndSettle();
+
+    final otherButton = find.byKey(const ValueKey('quick-primary-other'));
+    await tester.drag(
+      find.byKey(const ValueKey('setup-step-2')),
+      const Offset(0, -240),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(otherButton);
+    await tester.pumpAndSettle();
+
+    final qualificationName = find.byKey(
+      const ValueKey('qualification-name-1'),
+    );
+    await tester.enterText(qualificationName, '小児');
+    await tester.pumpAndSettle();
+
+    expect(find.text('小児科専門医'), findsOneWidget);
+    expect(find.text('小児神経専門医'), findsOneWidget);
+    expect(find.text('小児循環器専門医'), findsOneWidget);
+  });
+
+  testWidgets('qualification prefix shows multiple specialist candidates', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MedLicenseApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('設定を始める'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('次へ'));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const ValueKey('setup-step-2')),
+      const Offset(0, -240),
+    );
+    await tester.pumpAndSettle();
+
+    final qualificationName = find.byKey(
+      const ValueKey('qualification-name-1'),
+    );
+    await tester.enterText(qualificationName, '消化');
+    await tester.pumpAndSettle();
+
+    expect(find.text('消化器病専門医'), findsOneWidget);
+    expect(find.text('消化器内視鏡専門医'), findsOneWidget);
+    expect(find.text('消化器外科専門医'), findsOneWidget);
   });
 
   testWidgets('surgery quick selection reveals verified subspecialties', (
