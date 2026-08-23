@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'data/app_controller.dart';
 import 'med_license_app.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MedLicenseApp());
+  final controller = await AppController.load();
+  runApp(MedLicenseApp(controller: controller));
 }

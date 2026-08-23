@@ -1,0 +1,30 @@
+{
+  "name": "medlicense-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "check:server": "tsc --noEmit",
+    "db:migrate": "node --import tsx scripts/migrate.ts",
+    "db:seed": "node --import tsx scripts/seed-catalog.ts",
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "db:reprocess": "node --import tsx scripts/reprocess-rules.ts",
+    "sync:sources": "node --import tsx scripts/sync-sources.ts",
+    "test:server": "node --import tsx --test server-tests/*.test.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.0",
+    "@vercel/blob": "^2.3.0",
+    "cheerio": "^1.1.0",
+    "dotenv": "^17.0.0",
+    "pdf-parse": "1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

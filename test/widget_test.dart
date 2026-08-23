@@ -138,6 +138,10 @@ void main() {
     expect(find.text('保有資格を登録'), findsOneWidget);
     expect(find.text('資格番号（任意）'), findsOneWidget);
 
+    await tester.tap(
+      find.byKey(const ValueKey('quick-primary-internal-medicine')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('登録して始める'));
     await tester.pumpAndSettle();
     expect(find.text('資格更新の状況'), findsOneWidget);
@@ -169,7 +173,7 @@ void main() {
       find.byKey(const ValueKey('qualification-organization-1')),
     );
     expect(organization.controller?.text, '日本循環器学会');
-    expect(find.text('認定団体を自動入力しました'), findsOneWidget);
+    expect(find.text('認定団体と更新条件を自動設定しました'), findsOneWidget);
   });
 
   testWidgets('other selection searches many pediatric qualifications', (

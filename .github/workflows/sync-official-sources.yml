@@ -1,0 +1,28 @@
+name: Sync official qualification sources
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Monday 03:30 JST. The database skips sources already checked by Vercel Cron.
+    - cron: '30 18 * * 0'
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger protected Vercel sync endpoint
+        env:
+          SYNC_ENDPOINT: ${{ vars.SYNC_ENDPOINT }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$SYNC_ENDPOINT"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            --header "X-GitHub-Event: scheduled-source-sync" \
+            "$SYNC_ENDPOINT?limit=10"

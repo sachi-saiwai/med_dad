@@ -1,5 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "outputDirectory": "build/web"
+  "outputDirectory": "build/web",
+  "regions": ["sin1"],
+  "functions": {
+    "api/cron/sync.ts": {
+      "maxDuration": 60,
+      "includeFiles": "node_modules/pdf-parse/lib/pdf.js/**"
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/sync?limit=5",
+      "schedule": "0 18 * * 0"
+    }
+  ]
 }

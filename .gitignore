@@ -32,6 +32,11 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+node_modules/
+.env
+.env.*
+!.env.example
+.vercel/
 
 # Keep the production Flutter web bundle for the static Vercel preview.
 !/build/
@@ -49,3 +54,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+.vercel
+.env*

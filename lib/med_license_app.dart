@@ -1,4 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import 'data/app_controller.dart';
+import 'data/app_state.dart';
+import 'services/attachment_service.dart';
 
 const _ink = Color(0xFF18324A);
 const _primary = Color(0xFF2D6A63);
@@ -7,8 +13,23 @@ const _line = Color(0xFFDCE3DE);
 const _warning = Color(0xFFE88C32);
 const _danger = Color(0xFFB85042);
 
-class MedLicenseApp extends StatelessWidget {
-  const MedLicenseApp({super.key});
+class MedLicenseApp extends StatefulWidget {
+  const MedLicenseApp({super.key, this.controller});
+
+  final AppController? controller;
+
+  @override
+  State<MedLicenseApp> createState() => _MedLicenseAppState();
+}
+
+class _MedLicenseAppState extends State<MedLicenseApp> {
+  late final AppController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = widget.controller ?? AppController.memory();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,85 +41,90 @@ class MedLicenseApp extends StatelessWidget {
       error: _danger,
     );
 
-    return MaterialApp(
-      title: '資格更新ノート',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: colorScheme,
-        scaffoldBackgroundColor: _canvas,
-        fontFamilyFallback: const ['Hiragino Sans', 'Noto Sans JP'],
-        textTheme: const TextTheme(
-          headlineMedium: TextStyle(
-            color: _ink,
-            fontSize: 28,
-            height: 1.25,
-            fontWeight: FontWeight.w800,
-          ),
-          titleLarge: TextStyle(
-            color: _ink,
-            fontSize: 22,
-            height: 1.3,
-            fontWeight: FontWeight.w800,
-          ),
-          titleMedium: TextStyle(
-            color: _ink,
-            fontSize: 17,
-            height: 1.4,
-            fontWeight: FontWeight.w700,
-          ),
-          bodyLarge: TextStyle(color: _ink, fontSize: 16, height: 1.55),
-          bodyMedium: TextStyle(color: _ink, fontSize: 14, height: 1.5),
-          labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-        ),
-        cardTheme: const CardThemeData(
-          color: Colors.white,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(20)),
-            side: BorderSide(color: _line),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 16,
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) => MaterialApp(
+        title: '資格更新ノート',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: colorScheme,
+          scaffoldBackgroundColor: _canvas,
+          fontFamilyFallback: const ['Hiragino Sans', 'Noto Sans JP'],
+          textTheme: const TextTheme(
+            headlineMedium: TextStyle(
+              color: _ink,
+              fontSize: 28,
+              height: 1.25,
               fontWeight: FontWeight.w800,
             ),
+            titleLarge: TextStyle(
+              color: _ink,
+              fontSize: 22,
+              height: 1.3,
+              fontWeight: FontWeight.w800,
+            ),
+            titleMedium: TextStyle(
+              color: _ink,
+              fontSize: 17,
+              height: 1.4,
+              fontWeight: FontWeight.w700,
+            ),
+            bodyLarge: TextStyle(color: _ink, fontSize: 16, height: 1.55),
+            bodyMedium: TextStyle(color: _ink, fontSize: 14, height: 1.5),
+            labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
           ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 48),
-            side: const BorderSide(color: _line),
+          cardTheme: const CardThemeData(
+            color: Colors.white,
+            elevation: 0,
+            margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(20)),
+              side: BorderSide(color: _line),
+            ),
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              side: const BorderSide(color: _line),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 15,
+            ),
+            border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: _line),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: _line),
             ),
           ),
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 15,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: _line),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: _line),
-          ),
-        ),
+        home: _controller.isSetupComplete || _controller.demoMode
+            ? AppShell(controller: _controller)
+            : InitialSetupScreen(controller: _controller),
       ),
-      home: const InitialSetupScreen(),
     );
   }
 }
@@ -135,6 +161,7 @@ class Qualification {
     required this.requiredTotal,
     required this.headline,
     required this.requirements,
+    this.hasVerifiedRequirements = true,
   });
 
   final String name;
@@ -146,8 +173,10 @@ class Qualification {
   final double requiredTotal;
   final String headline;
   final List<RequirementProgress> requirements;
+  final bool hasVerifiedRequirements;
 
-  double get progress => (total / requiredTotal).clamp(0, 1);
+  double get progress =>
+      requiredTotal <= 0 ? 0 : (total / requiredTotal).clamp(0, 1);
 }
 
 class QualificationCatalogEntry {
@@ -721,6 +750,50 @@ const sampleQualifications = <Qualification>[
   ),
 ];
 
+Qualification qualificationFromStored(StoredQualification stored) {
+  final deadline = _parseFlexibleDate(stored.deadline);
+  final remainingDays = deadline == null
+      ? 0
+      : DateTime(
+          deadline.year,
+          deadline.month,
+          deadline.day,
+        ).difference(DateTime.now()).inDays;
+  return Qualification(
+    name: stored.name,
+    organization: stored.organization,
+    deadline: deadline == null
+        ? '未登録'
+        : '${deadline.year}年${deadline.month}月${deadline.day}日',
+    remainingDays: remainingDays,
+    state: QualificationState.needsAttention,
+    total: 0,
+    requiredTotal: 0,
+    headline: '公式の更新条件を取得・確認中です',
+    requirements: const [],
+    hasVerifiedRequirements: false,
+  );
+}
+
+DateTime? _parseFlexibleDate(String value) {
+  final normalized = value
+      .trim()
+      .replaceAll('年', '/')
+      .replaceAll('月', '/')
+      .replaceAll('日', '');
+  final parts = normalized.split('/');
+  if (parts.length != 3) return null;
+  final year = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  final day = int.tryParse(parts[2]);
+  if (year == null || month == null || day == null) return null;
+  final parsed = DateTime(year, month, day);
+  if (parsed.year != year || parsed.month != month || parsed.day != day) {
+    return null;
+  }
+  return parsed;
+}
+
 const creditBreakdownByQualification = <String, List<CreditBreakdownEntry>>{
   '超音波専門医': [
     CreditBreakdownEntry(
@@ -884,7 +957,9 @@ const creditBreakdownByQualification = <String, List<CreditBreakdownEntry>>{
 };
 
 class InitialSetupScreen extends StatefulWidget {
-  const InitialSetupScreen({super.key});
+  const InitialSetupScreen({super.key, required this.controller});
+
+  final AppController controller;
 
   @override
   State<InitialSetupScreen> createState() => _InitialSetupScreenState();
@@ -894,8 +969,9 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   int _currentStep = 0;
   int _nextQualificationId = 2;
   bool _notificationsEnabled = true;
+  final TextEditingController _displayNameController = TextEditingController();
   final List<_QualificationDraft> _qualifications = [
-    const _QualificationDraft(
+    _QualificationDraft(
       id: 1,
       name: '',
       organization: '',
@@ -904,18 +980,64 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     ),
   ];
 
-  void _goToApp() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const AppShell()),
-    );
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    super.dispose();
   }
 
-  void _nextStep() {
+  void _openDemo() {
+    widget.controller.enterDemoMode();
+  }
+
+  Future<void> _nextStep() async {
     if (_currentStep < 2) {
       setState(() => _currentStep += 1);
       return;
     }
-    _goToApp();
+
+    final selected = _qualifications
+        .where((item) => item.name.trim().isNotEmpty)
+        .toList();
+    if (selected.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('保有資格を1件以上選択してください')));
+      return;
+    }
+
+    final storedQualifications = <StoredQualification>[];
+    for (final draft in selected) {
+      storedQualifications.add(
+        StoredQualification(
+          id: 'qualification-${draft.id}',
+          name: draft.name.trim(),
+          organization: draft.organization.trim(),
+          licenseNumber: draft.licenseNumber.trim(),
+          deadline: draft.deadline.trim(),
+        ),
+      );
+      for (final subspecialtyName in draft.subspecialtyNames) {
+        final entry = qualificationCatalog.firstWhere(
+          (item) => item.name == subspecialtyName,
+        );
+        storedQualifications.add(
+          StoredQualification(
+            id: 'qualification-${draft.id}-${entry.name.hashCode.abs()}',
+            name: entry.name,
+            organization: entry.organization,
+            licenseNumber: '',
+            deadline: '',
+            parentQualification: draft.name,
+          ),
+        );
+      }
+    }
+    await widget.controller.completeSetup(
+      displayName: _displayNameController.text,
+      qualifications: storedQualifications,
+      notificationsEnabled: _notificationsEnabled,
+    );
   }
 
   void _previousStep() {
@@ -940,7 +1062,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final page = switch (_currentStep) {
-      1 => const _ProfileSetupPage(),
+      1 => _ProfileSetupPage(controller: _displayNameController),
       2 => _QualificationSetupPage(
         qualifications: _qualifications,
         notificationsEnabled: _notificationsEnabled,
@@ -1020,7 +1142,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   if (_currentStep == 0) ...[
                     const SizedBox(height: 4),
                     TextButton(
-                      onPressed: _goToApp,
+                      onPressed: _openDemo,
                       child: const Text('サンプルデータで見る'),
                     ),
                   ],
@@ -1035,19 +1157,20 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
 }
 
 class _QualificationDraft {
-  const _QualificationDraft({
+  _QualificationDraft({
     required this.id,
     required this.name,
     required this.organization,
     required this.licenseNumber,
     required this.deadline,
-  });
+  }) : subspecialtyNames = {};
 
   final int id;
-  final String name;
-  final String organization;
-  final String licenseNumber;
-  final String deadline;
+  String name;
+  String organization;
+  String licenseNumber;
+  String deadline;
+  Set<String> subspecialtyNames;
 }
 
 class _SetupBrand extends StatelessWidget {
@@ -1292,7 +1415,9 @@ class _SetupPrivacyNotice extends StatelessWidget {
 }
 
 class _ProfileSetupPage extends StatelessWidget {
-  const _ProfileSetupPage();
+  const _ProfileSetupPage({required this.controller});
+
+  final TextEditingController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -1311,8 +1436,9 @@ class _ProfileSetupPage extends StatelessWidget {
           style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 7),
-        const TextField(
-          decoration: InputDecoration(
+        TextField(
+          controller: controller,
+          decoration: const InputDecoration(
             hintText: '例：田中 太郎',
             prefixIcon: Icon(Icons.person_outline_rounded),
           ),
@@ -1440,7 +1566,7 @@ class _QualificationSetupPage extends StatelessWidget {
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '総単位・区分別単位・必須講習などの詳しい条件は、登録後に資格詳細から追加できます。',
+                  '資格を選ぶと、総単位・区分別単位・必須講習などの更新条件を自動設定します。登録後に内容を確認・修正できます。',
                   style: TextStyle(color: _ink, fontSize: 13, height: 1.5),
                 ),
               ),
@@ -1488,6 +1614,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
     _organizationController = TextEditingController(
       text: widget.draft.organization,
     );
+    _selectedSubspecialtyNames.addAll(widget.draft.subspecialtyNames);
     for (final entry in qualificationCatalog) {
       if (entry.name == widget.draft.name) {
         _selectedEntry = entry;
@@ -1543,6 +1670,8 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
       );
     }
     _organizationController.text = entry.organization;
+    widget.draft.name = entry.name;
+    widget.draft.organization = entry.organization;
     setState(() {
       _selectedEntry = entry;
       _isOtherSelected =
@@ -1562,6 +1691,9 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
   void _selectOtherQualification() {
     _qualificationController?.clear();
     _organizationController.clear();
+    widget.draft.name = '';
+    widget.draft.organization = '';
+    widget.draft.subspecialtyNames = {};
     setState(() {
       _isOtherSelected = true;
       _selectedEntry = null;
@@ -1573,11 +1705,13 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
   }
 
   void _handleQualificationTextChanged(String value) {
+    widget.draft.name = value;
     if (_selectedEntry?.name == value) return;
     setState(() {
       _isOtherSelected = true;
       _selectedEntry = null;
       _selectedSubspecialtyNames.clear();
+      widget.draft.subspecialtyNames = {};
     });
   }
 
@@ -1588,6 +1722,9 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
       } else {
         _selectedSubspecialtyNames.remove(name);
       }
+      widget.draft.subspecialtyNames = Set<String>.from(
+        _selectedSubspecialtyNames,
+      );
     });
   }
 
@@ -1808,7 +1945,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '候補を選ぶと認定団体を自動入力します',
+                            '候補を選ぶと認定団体と更新条件を自動設定します',
                             style: TextStyle(
                               color: Colors.blueGrey,
                               fontSize: 12,
@@ -1823,7 +1960,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                         Icon(Icons.check_circle, size: 16, color: _primary),
                         SizedBox(width: 6),
                         Text(
-                          '認定団体を自動入力しました',
+                          '認定団体と更新条件を自動設定しました',
                           style: TextStyle(
                             color: _primary,
                             fontSize: 12,
@@ -1837,6 +1974,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
             TextFormField(
               key: ValueKey('qualification-organization-${widget.draft.id}'),
               controller: _organizationController,
+              onChanged: (value) => widget.draft.organization = value,
               decoration: const InputDecoration(
                 labelText: '認定団体',
                 helperText: '必要に応じて修正できます',
@@ -1854,6 +1992,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
             const SizedBox(height: 12),
             TextFormField(
               initialValue: widget.draft.licenseNumber,
+              onChanged: (value) => widget.draft.licenseNumber = value,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: _selectedEntry == null
@@ -1865,6 +2004,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
             const SizedBox(height: 12),
             TextFormField(
               initialValue: widget.draft.deadline,
+              onChanged: (value) => widget.draft.deadline = value,
               keyboardType: TextInputType.datetime,
               decoration: InputDecoration(
                 labelText: _selectedEntry == null
@@ -2145,7 +2285,9 @@ class _SubspecialtyChoice extends StatelessWidget {
 }
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, required this.controller});
+
+  final AppController controller;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -2153,6 +2295,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+  final AttachmentService _attachmentService = createAttachmentService();
 
   Future<void> _openRegistration() async {
     final source = await showModalBottomSheet<String>(
@@ -2162,9 +2305,28 @@ class _AppShellState extends State<AppShell> {
       builder: (context) => const RegistrationChoiceSheet(),
     );
     if (!mounted || source == null) return;
+    PickedAttachment? attachment;
+    if (widget.controller.demoMode && source != '手入力') {
+      attachment = const PickedAttachment(displayName: '受講証明書_0818.jpg');
+    } else if (source != '手入力') {
+      try {
+        attachment = await _attachmentService.pick(source);
+      } on Object {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ファイルを取り込めませんでした。もう一度お試しください')),
+        );
+        return;
+      }
+      if (!mounted || attachment == null) return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CertificateReviewScreen(source: source),
+        builder: (_) => CertificateReviewScreen(
+          source: source,
+          controller: widget.controller,
+          attachment: attachment,
+        ),
       ),
     );
   }
@@ -2180,9 +2342,12 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final body = switch (_selectedIndex) {
-      2 => const ActivityListScreen(),
-      3 => const SettingsScreen(),
-      _ => HomeScreen(onRegister: _openRegistration),
+      2 => ActivityListScreen(controller: widget.controller),
+      3 => SettingsScreen(controller: widget.controller),
+      _ => HomeScreen(
+        controller: widget.controller,
+        onRegister: _openRegistration,
+      ),
     };
 
     return Scaffold(
@@ -2226,12 +2391,26 @@ class _AppShellState extends State<AppShell> {
 }
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, required this.onRegister});
+  const HomeScreen({
+    super.key,
+    required this.controller,
+    required this.onRegister,
+  });
 
+  final AppController controller;
   final VoidCallback onRegister;
 
   @override
   Widget build(BuildContext context) {
+    final qualifications = controller.demoMode
+        ? sampleQualifications
+        : controller.snapshot.qualifications
+              .map(qualificationFromStored)
+              .toList(growable: false);
+    final datedQualifications =
+        qualifications.where((item) => item.deadline != '未登録').toList()
+          ..sort((a, b) => a.remainingDays.compareTo(b.remainingDays));
+    final nextQualification = datedQualifications.firstOrNull;
     return CustomScrollView(
       key: const PageStorageKey('home-scroll'),
       slivers: [
@@ -2239,7 +2418,10 @@ class HomeScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
           sliver: SliverList.list(
             children: [
-              const _TopBar(),
+              _TopBar(
+                displayName: controller.snapshot.displayName,
+                isDemo: controller.demoMode,
+              ),
               const SizedBox(height: 26),
               Text(
                 '資格更新の状況',
@@ -2247,28 +2429,34 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                '2026年8月22日 現在',
+                '${DateTime.now().year}年${DateTime.now().month}月${DateTime.now().day}日 現在',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.blueGrey.shade600,
                 ),
               ),
               const SizedBox(height: 20),
-              _AttentionBanner(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          const CertificateReviewScreen(source: '保存済みの写真'),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 14),
-              _NextDeadlineCard(
-                onTap: () =>
-                    _openQualification(context, sampleQualifications.first),
-              ),
-              const SizedBox(height: 16),
+              if (controller.demoMode) ...[
+                _AttentionBanner(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CertificateReviewScreen(
+                          source: '保存済みの写真',
+                          controller: controller,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (nextQualification != null) ...[
+                _NextDeadlineCard(
+                  qualification: nextQualification,
+                  onTap: () => _openQualification(context, nextQualification),
+                ),
+                const SizedBox(height: 16),
+              ],
               FilledButton.icon(
                 onPressed: onRegister,
                 icon: const Icon(Icons.document_scanner_outlined),
@@ -2277,7 +2465,7 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 30),
               _SectionHeading(title: '保有資格', trailing: '期限が近い順', onTap: () {}),
               const SizedBox(height: 12),
-              ...sampleQualifications.map(
+              ...qualifications.map(
                 (qualification) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: QualificationCard(
@@ -2305,7 +2493,10 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar();
+  const _TopBar({required this.displayName, required this.isDemo});
+
+  final String displayName;
+  final bool isDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -2324,11 +2515,11 @@ class _TopBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 '資格更新ノート',
                 style: TextStyle(
                   color: _ink,
@@ -2336,29 +2527,35 @@ class _TopBar extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              SizedBox(height: 2),
-              Text(
+              if (displayName.trim().isNotEmpty)
+                Text(
+                  '${displayName.trim()}さんの資格管理',
+                  style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+                ),
+              const SizedBox(height: 2),
+              const Text(
                 '本人専用',
                 style: TextStyle(color: Colors.blueGrey, fontSize: 13),
               ),
             ],
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8F1EF),
-            borderRadius: BorderRadius.circular(99),
-          ),
-          child: const Text(
-            'サンプルデータ',
-            style: TextStyle(
-              color: _primary,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+        if (isDemo)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F1EF),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: const Text(
+              'サンプルデータ',
+              style: TextStyle(
+                color: _primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -2417,8 +2614,9 @@ class _AttentionBanner extends StatelessWidget {
 }
 
 class _NextDeadlineCard extends StatelessWidget {
-  const _NextDeadlineCard({required this.onTap});
+  const _NextDeadlineCard({required this.qualification, required this.onTap});
 
+  final Qualification qualification;
   final VoidCallback onTap;
 
   @override
@@ -2455,9 +2653,11 @@ class _NextDeadlineCard extends StatelessWidget {
                       color: Colors.white.withValues(alpha: .12),
                       borderRadius: BorderRadius.circular(99),
                     ),
-                    child: const Text(
-                      'あと131日',
-                      style: TextStyle(
+                    child: Text(
+                      qualification.remainingDays >= 0
+                          ? 'あと${qualification.remainingDays}日'
+                          : '${-qualification.remainingDays}日超過',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
                       ),
@@ -2466,39 +2666,39 @@ class _NextDeadlineCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 13),
-              const Text(
-                '超音波専門医',
-                style: TextStyle(
+              Text(
+                qualification.name,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 23,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 5),
-              const Text(
-                '2026年12月31日',
-                style: TextStyle(color: Color(0xFFD8E2E9), fontSize: 15),
+              Text(
+                qualification.deadline,
+                style: const TextStyle(color: Color(0xFFD8E2E9), fontSize: 15),
               ),
               const SizedBox(height: 18),
-              const Row(
+              Row(
                 children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
+                  const Icon(
+                    Icons.info_outline_rounded,
                     color: Color(0xFFFFC36E),
                     size: 21,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '必須講習が1回不足しています',
-                      style: TextStyle(
+                      qualification.headline,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                  Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                  const Icon(Icons.arrow_forward_rounded, color: Colors.white),
                 ],
               ),
             ],
@@ -2582,26 +2782,36 @@ class QualificationCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 18),
-              Row(
-                children: [
-                  Text(
-                    '${qualification.total.toInt()} / ${qualification.requiredTotal.toInt()} 単位',
-                    style: const TextStyle(
-                      color: _ink,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
+              if (qualification.hasVerifiedRequirements)
+                Row(
+                  children: [
+                    Text(
+                      '${qualification.total.toInt()} / ${qualification.requiredTotal.toInt()} 単位',
+                      style: const TextStyle(
+                        color: _ink,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${(qualification.progress * 100).round()}%',
-                    style: const TextStyle(
-                      color: _primary,
-                      fontWeight: FontWeight.w800,
+                    const Spacer(),
+                    Text(
+                      '${(qualification.progress * 100).round()}%',
+                      style: const TextStyle(
+                        color: _primary,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
+                  ],
+                )
+              else
+                const Text(
+                  '更新条件：公式情報を確認中',
+                  style: TextStyle(
+                    color: _ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
                   ),
-                ],
-              ),
+                ),
               const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(99),
@@ -2741,7 +2951,9 @@ class QualificationDetailScreen extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                '${(qualification.progress * 100).round()}%',
+                                qualification.hasVerifiedRequirements
+                                    ? '${(qualification.progress * 100).round()}%'
+                                    : '確認中',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
@@ -2765,7 +2977,9 @@ class QualificationDetailScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 5),
                               Text(
-                                '${qualification.total.toInt()} / ${qualification.requiredTotal.toInt()} 単位',
+                                qualification.hasVerifiedRequirements
+                                    ? '${qualification.total.toInt()} / ${qualification.requiredTotal.toInt()} 単位'
+                                    : '条件を取得しています',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 22,
@@ -2793,6 +3007,16 @@ class QualificationDetailScreen extends StatelessWidget {
                 const SizedBox(height: 28),
                 const _SectionHeading(title: '更新条件'),
                 const SizedBox(height: 12),
+                if (!qualification.hasVerifiedRequirements)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        '認定団体の公式ページ・PDFを確認し、制度区分と取得年度に合う条件を出典付きで表示します。確認が終わるまでは自動計算しません。',
+                        style: TextStyle(color: Colors.blueGrey, height: 1.5),
+                      ),
+                    ),
+                  ),
                 ...qualification.requirements.map(
                   (requirement) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -2945,10 +3169,16 @@ class _DeadlineRow extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            'あと${qualification.remainingDays}日',
-            style: const TextStyle(color: _danger, fontWeight: FontWeight.w800),
-          ),
+          if (qualification.deadline != '未登録')
+            Text(
+              qualification.remainingDays >= 0
+                  ? 'あと${qualification.remainingDays}日'
+                  : '${-qualification.remainingDays}日超過',
+              style: const TextStyle(
+                color: _danger,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
         ],
       ),
     );
@@ -3397,9 +3627,16 @@ class _RegistrationChoice extends StatelessWidget {
 }
 
 class CertificateReviewScreen extends StatefulWidget {
-  const CertificateReviewScreen({super.key, required this.source});
+  const CertificateReviewScreen({
+    super.key,
+    required this.source,
+    required this.controller,
+    this.attachment,
+  });
 
   final String source;
+  final AppController controller;
+  final PickedAttachment? attachment;
 
   @override
   State<CertificateReviewScreen> createState() =>
@@ -3410,15 +3647,27 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
   late final TextEditingController _eventController;
   late final TextEditingController _dateController;
   late final TextEditingController _organizerController;
-  bool _internalMedicine = true;
-  bool _cardiology = true;
+  late final TextEditingController _creditsController;
+  final Set<String> _selectedQualificationIds = {};
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _eventController = TextEditingController(text: '第42回 地域医療研修会');
-    _dateController = TextEditingController(text: '2026/08/18');
-    _organizerController = TextEditingController(text: '地域医療研修センター');
+    final usesSample = widget.controller.demoMode;
+    _eventController = TextEditingController(
+      text: usesSample ? '第42回 地域医療研修会' : '',
+    );
+    _dateController = TextEditingController(
+      text: usesSample ? '2026/08/18' : '',
+    );
+    _organizerController = TextEditingController(
+      text: usesSample ? '地域医療研修センター' : '',
+    );
+    _creditsController = TextEditingController(text: usesSample ? '2' : '');
+    _selectedQualificationIds.addAll(
+      widget.controller.snapshot.qualifications.map((item) => item.id),
+    );
   }
 
   @override
@@ -3426,7 +3675,44 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
     _eventController.dispose();
     _dateController.dispose();
     _organizerController.dispose();
+    _creditsController.dispose();
     super.dispose();
+  }
+
+  Future<void> _save({required bool draft}) async {
+    if (_saving) return;
+    if (_eventController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('研修会・イベント名を入力してください')));
+      return;
+    }
+    setState(() => _saving = true);
+    final activity = StoredActivity(
+      id: 'activity-${DateTime.now().microsecondsSinceEpoch}',
+      title: _eventController.text.trim(),
+      date: _dateController.text.trim(),
+      organizer: _organizerController.text.trim(),
+      status: draft ? '下書き' : '確定',
+      credits: double.tryParse(_creditsController.text.trim()) ?? 0,
+      source: widget.source,
+      createdAt: DateTime.now().toIso8601String(),
+      attachmentPath: widget.attachment?.path,
+    );
+    await widget.controller.addActivity(activity);
+    if (!mounted) return;
+    if (draft) {
+      Navigator.of(context).pop();
+      return;
+    }
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => RegistrationResultScreen(
+          qualificationCount: _selectedQualificationIds.length,
+          showSampleProgress: widget.controller.demoMode,
+        ),
+      ),
+    );
   }
 
   @override
@@ -3447,7 +3733,10 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                 const _StepIndicator(currentStep: 2),
                 const SizedBox(height: 24),
                 if (!isManual) ...[
-                  _CertificatePreview(source: widget.source),
+                  _CertificatePreview(
+                    source: widget.source,
+                    fileName: widget.attachment?.displayName,
+                  ),
                   const SizedBox(height: 14),
                   const _ReviewWarning(),
                   const SizedBox(height: 26),
@@ -3477,6 +3766,11 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                   confidence: isManual ? null : '82%',
                   needsCheck: !isManual,
                 ),
+                const SizedBox(height: 14),
+                _LabeledField(
+                  label: '取得単位（不明な場合は空欄）',
+                  controller: _creditsController,
+                ),
                 const SizedBox(height: 28),
                 Row(
                   children: [
@@ -3499,23 +3793,28 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                   style: TextStyle(color: Colors.blueGrey.shade600),
                 ),
                 const SizedBox(height: 14),
-                _AllocationCard(
-                  qualification: '内科専門医',
-                  category: '共通講習',
-                  credits: '2単位',
-                  selected: _internalMedicine,
-                  reason: '主催団体と「共通講習」の語句が登録ルールに一致',
-                  onChanged: (value) =>
-                      setState(() => _internalMedicine = value),
-                ),
-                const SizedBox(height: 10),
-                _AllocationCard(
-                  qualification: '循環器専門医',
-                  category: '専門単位',
-                  credits: '1単位',
-                  selected: _cardiology,
-                  reason: '認定番号「CM-2026-0818」が登録ルールに一致',
-                  onChanged: (value) => setState(() => _cardiology = value),
+                ...widget.controller.snapshot.qualifications.map(
+                  (qualification) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _AllocationCard(
+                      qualification: qualification.name,
+                      category: '区分は公式条件と照合',
+                      credits: _creditsController.text.trim().isEmpty
+                          ? '単位未確認'
+                          : '${_creditsController.text.trim()}単位',
+                      selected: _selectedQualificationIds.contains(
+                        qualification.id,
+                      ),
+                      reason: '登録資格と認定団体の公式更新条件を照合して確定します',
+                      onChanged: (value) => setState(() {
+                        if (value) {
+                          _selectedQualificationIds.add(qualification.id);
+                        } else {
+                          _selectedQualificationIds.remove(qualification.id);
+                        }
+                      }),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -3543,10 +3842,7 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
-                  onPressed: () => _showPrototypeMessage(
-                    context,
-                    '下書きとして保存しました（進捗には反映されません）',
-                  ),
+                  onPressed: _saving ? null : () => _save(draft: true),
                   child: const Text('下書き保存', style: TextStyle(fontSize: 14)),
                 ),
               ),
@@ -3554,17 +3850,8 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
               Expanded(
                 flex: 2,
                 child: FilledButton(
-                  onPressed: _internalMedicine || _cardiology
-                      ? () => Navigator.of(context).pushReplacement(
-                          MaterialPageRoute<void>(
-                            builder: (_) => RegistrationResultScreen(
-                              qualificationCount: [
-                                _internalMedicine,
-                                _cardiology,
-                              ].where((value) => value).length,
-                            ),
-                          ),
-                        )
+                  onPressed: _selectedQualificationIds.isNotEmpty && !_saving
+                      ? () => _save(draft: false)
                       : null,
                   child: const Text('確定して登録'),
                 ),
@@ -3650,9 +3937,10 @@ class _StepIndicator extends StatelessWidget {
 }
 
 class _CertificatePreview extends StatelessWidget {
-  const _CertificatePreview({required this.source});
+  const _CertificatePreview({required this.source, this.fileName});
 
   final String source;
+  final String? fileName;
 
   @override
   Widget build(BuildContext context) {
@@ -3733,9 +4021,11 @@ class _CertificatePreview extends StatelessWidget {
                   style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  '受講証明書_0818.jpg',
-                  style: TextStyle(
+                Text(
+                  fileName?.trim().isNotEmpty == true
+                      ? fileName!
+                      : '受講証明書_0818.jpg',
+                  style: const TextStyle(
                     color: _ink,
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -3966,9 +4256,14 @@ class _AllocationCard extends StatelessWidget {
 }
 
 class RegistrationResultScreen extends StatelessWidget {
-  const RegistrationResultScreen({super.key, required this.qualificationCount});
+  const RegistrationResultScreen({
+    super.key,
+    required this.qualificationCount,
+    this.showSampleProgress = false,
+  });
 
   final int qualificationCount;
+  final bool showSampleProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -4013,41 +4308,42 @@ class RegistrationResultScreen extends StatelessWidget {
                 const SizedBox(height: 28),
                 const _StepIndicator(currentStep: 3),
                 const SizedBox(height: 28),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '更新後の進捗',
-                          style: TextStyle(
-                            color: _ink,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
+                if (showSampleProgress)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '更新後の進捗',
+                            style: TextStyle(
+                              color: _ink,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (qualificationCount >= 1)
-                          const _ResultProgressRow(
-                            name: '内科専門医',
-                            before: '42',
-                            after: '44',
-                            requiredValue: '50',
-                          ),
-                        if (qualificationCount >= 2) ...[
-                          const Divider(height: 26),
-                          const _ResultProgressRow(
-                            name: '循環器専門医',
-                            before: '28',
-                            after: '29',
-                            requiredValue: '40',
-                          ),
+                          const SizedBox(height: 16),
+                          if (qualificationCount >= 1)
+                            const _ResultProgressRow(
+                              name: '内科専門医',
+                              before: '42',
+                              after: '44',
+                              requiredValue: '50',
+                            ),
+                          if (qualificationCount >= 2) ...[
+                            const Divider(height: 26),
+                            const _ResultProgressRow(
+                              name: '循環器専門医',
+                              before: '28',
+                              after: '29',
+                              requiredValue: '40',
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 18),
                 const _OfficialInfoNote(),
                 const SizedBox(height: 24),
@@ -4107,7 +4403,9 @@ class _ResultProgressRow extends StatelessWidget {
 enum ActivityFilter { all, needsReview, confirmed }
 
 class ActivityListScreen extends StatefulWidget {
-  const ActivityListScreen({super.key});
+  const ActivityListScreen({super.key, required this.controller});
+
+  final AppController controller;
 
   @override
   State<ActivityListScreen> createState() => _ActivityListScreenState();
@@ -4118,7 +4416,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activities = <_ActivityData>[
+    final sampleActivities = <_ActivityData>[
       const _ActivityData(
         title: '第42回 地域医療研修会',
         date: '2026/08/18',
@@ -4150,6 +4448,22 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         needsReview: true,
       ),
     ];
+    final activities = widget.controller.demoMode
+        ? sampleActivities
+        : widget.controller.snapshot.activities
+              .map(
+                (item) => _ActivityData(
+                  title: item.title,
+                  date: item.date.isEmpty ? '日付未入力' : item.date,
+                  organizer: item.organizer.isEmpty ? '主催者未入力' : item.organizer,
+                  status: item.status,
+                  credits: item.credits > 0
+                      ? '${_formatNumber(item.credits)}単位'
+                      : '単位未確認',
+                  needsReview: item.status != '確定',
+                ),
+              )
+              .toList();
     final filtered = activities.where((item) {
       return switch (_filter) {
         ActivityFilter.all => true,
@@ -4219,7 +4533,10 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         ...filtered.map(
           (activity) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: _ActivityCard(activity: activity),
+            child: _ActivityCard(
+              activity: activity,
+              controller: widget.controller,
+            ),
           ),
         ),
       ],
@@ -4246,9 +4563,10 @@ class _ActivityData {
 }
 
 class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({required this.activity});
+  const _ActivityCard({required this.activity, required this.controller});
 
   final _ActivityData activity;
+  final AppController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -4260,8 +4578,10 @@ class _ActivityCard extends StatelessWidget {
           if (activity.needsReview) {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) =>
-                    const CertificateReviewScreen(source: '保存済みの写真'),
+                builder: (_) => CertificateReviewScreen(
+                  source: '保存済みの写真',
+                  controller: controller,
+                ),
               ),
             );
           } else {
@@ -4344,16 +4664,37 @@ class _ActivityCard extends StatelessWidget {
 }
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, required this.controller});
+
+  final AppController controller;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _deadlineNotifications = true;
-  bool _missingNotifications = true;
-  bool _deviceLock = false;
+  late bool _deadlineNotifications;
+  late bool _missingNotifications;
+  late bool _deviceLock;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = widget.controller.snapshot.settings;
+    _deadlineNotifications = settings.deadlineNotifications;
+    _missingNotifications = settings.missingNotifications;
+    _deviceLock = settings.deviceLock;
+  }
+
+  void _saveSettings() {
+    widget.controller.updateSettingsUnawaited(
+      AppSettingsData(
+        deadlineNotifications: _deadlineNotifications,
+        missingNotifications: _missingNotifications,
+        deviceLock: _deviceLock,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4380,9 +4721,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               '本人専用プロフィール',
               style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
             ),
-            subtitle: const Padding(
-              padding: EdgeInsets.only(top: 4),
-              child: Text('資格3件・次回更新まで131日'),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${widget.controller.snapshot.qualifications.length}件の資格を端末内に保存',
+              ),
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () =>
@@ -4397,8 +4740,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               SwitchListTile(
                 value: _deadlineNotifications,
-                onChanged: (value) =>
-                    setState(() => _deadlineNotifications = value),
+                onChanged: (value) {
+                  setState(() => _deadlineNotifications = value);
+                  _saveSettings();
+                },
                 title: const Text(
                   '更新期限のお知らせ',
                   style: TextStyle(fontWeight: FontWeight.w700),
@@ -4408,8 +4753,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const Divider(height: 1, indent: 16, endIndent: 16),
               SwitchListTile(
                 value: _missingNotifications,
-                onChanged: (value) =>
-                    setState(() => _missingNotifications = value),
+                onChanged: (value) {
+                  setState(() => _missingNotifications = value);
+                  _saveSettings();
+                },
                 title: const Text(
                   '不足・要確認のお知らせ',
                   style: TextStyle(fontWeight: FontWeight.w700),
@@ -4457,7 +4804,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               SwitchListTile(
                 value: _deviceLock,
-                onChanged: (value) => setState(() => _deviceLock = value),
+                onChanged: (value) {
+                  setState(() => _deviceLock = value);
+                  _saveSettings();
+                },
                 title: const Text(
                   '端末認証でロック',
                   style: TextStyle(fontWeight: FontWeight.w700),
@@ -4478,7 +4828,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 22),
         const Center(
           child: Text(
-            '資格更新ノート  UIプロトタイプ v0.1',
+            '資格更新ノート  iPhone MVP v1.0',
             style: TextStyle(color: Colors.blueGrey, fontSize: 12),
           ),
         ),
