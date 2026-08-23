@@ -98,7 +98,7 @@ class MedLicenseApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AppShell(),
+      home: const InitialSetupScreen(),
     );
   }
 }
@@ -148,6 +148,26 @@ class Qualification {
   final List<RequirementProgress> requirements;
 
   double get progress => (total / requiredTotal).clamp(0, 1);
+}
+
+class CreditBreakdownEntry {
+  const CreditBreakdownEntry({
+    required this.title,
+    required this.eventType,
+    required this.category,
+    required this.date,
+    required this.organizer,
+    required this.credits,
+    required this.certificationId,
+  });
+
+  final String title;
+  final String eventType;
+  final String category;
+  final String date;
+  final String organizer;
+  final double credits;
+  final String certificationId;
 }
 
 const sampleQualifications = <Qualification>[
@@ -245,6 +265,827 @@ const sampleQualifications = <Qualification>[
     ],
   ),
 ];
+
+const creditBreakdownByQualification = <String, List<CreditBreakdownEntry>>{
+  '超音波専門医': [
+    CreditBreakdownEntry(
+      title: '日本超音波医学会 第99回学術集会',
+      eventType: '学会',
+      category: '学術集会参加',
+      date: '2026/05/29',
+      organizer: '日本超音波医学会',
+      credits: 10,
+      certificationId: '2605290099',
+    ),
+    CreditBreakdownEntry(
+      title: '第38回 東日本地方会',
+      eventType: '学会',
+      category: '地方会参加',
+      date: '2026/04/21',
+      organizer: '日本超音波医学会',
+      credits: 6,
+      certificationId: '2604210147',
+    ),
+    CreditBreakdownEntry(
+      title: '腹部超音波ハンズオン講習会',
+      eventType: '講習',
+      category: '専門講習',
+      date: '2026/03/15',
+      organizer: '超音波研修センター',
+      credits: 6,
+      certificationId: '2603150064',
+    ),
+    CreditBreakdownEntry(
+      title: '救急超音波実践セミナー',
+      eventType: '講習',
+      category: '専門講習',
+      date: '2026/02/18',
+      organizer: '救急超音波研究会',
+      credits: 4,
+      certificationId: '2602180218',
+    ),
+    CreditBreakdownEntry(
+      title: '症例発表：心エコー評価',
+      eventType: '学会',
+      category: '学会発表',
+      date: '2026/01/28',
+      organizer: '地域超音波研究会',
+      credits: 5,
+      certificationId: '2601280032',
+    ),
+    CreditBreakdownEntry(
+      title: '超音波安全管理 eラーニング',
+      eventType: '講習',
+      category: '安全管理講習',
+      date: '2025/12/08',
+      organizer: '認定団体',
+      credits: 3,
+      certificationId: '2512080175',
+    ),
+  ],
+  '内科専門医': [
+    CreditBreakdownEntry(
+      title: '日本内科学会 総会・講演会',
+      eventType: '学会',
+      category: '学術集会参加',
+      date: '2026/04/12',
+      organizer: '日本内科学会',
+      credits: 10,
+      certificationId: '2604120108',
+    ),
+    CreditBreakdownEntry(
+      title: '第42回 地域医療研修会',
+      eventType: '講習',
+      category: '共通講習',
+      date: '2026/08/18',
+      organizer: '地域医療研修センター',
+      credits: 2,
+      certificationId: '2608180042',
+    ),
+    CreditBreakdownEntry(
+      title: '医療安全講習会',
+      eventType: '講習',
+      category: '医療安全',
+      date: '2026/07/12',
+      organizer: '県医師会',
+      credits: 1,
+      certificationId: '2607120185',
+    ),
+    CreditBreakdownEntry(
+      title: '感染対策アップデート',
+      eventType: '講習',
+      category: '感染対策',
+      date: '2026/06/08',
+      organizer: '県医師会',
+      credits: 4,
+      certificationId: '2606080124',
+    ),
+    CreditBreakdownEntry(
+      title: '内科地方会・症例発表',
+      eventType: '学会',
+      category: '学会発表',
+      date: '2026/03/22',
+      organizer: '日本内科学会',
+      credits: 15,
+      certificationId: '2603220316',
+    ),
+    CreditBreakdownEntry(
+      title: '内科診療 eラーニング',
+      eventType: '講習',
+      category: '専門講習',
+      date: '2026/02/05',
+      organizer: '認定団体',
+      credits: 10,
+      certificationId: '2602050087',
+    ),
+  ],
+  '循環器専門医': [
+    CreditBreakdownEntry(
+      title: '日本循環器学会 学術集会',
+      eventType: '学会',
+      category: '学術集会参加',
+      date: '2026/03/20',
+      organizer: '日本循環器学会',
+      credits: 10,
+      certificationId: '2603200101',
+    ),
+    CreditBreakdownEntry(
+      title: '循環器カンファレンス',
+      eventType: '講習',
+      category: '専門講習',
+      date: '2026/06/28',
+      organizer: '循環器学会',
+      credits: 3,
+      certificationId: '2606280226',
+    ),
+    CreditBreakdownEntry(
+      title: '心不全診療アップデート',
+      eventType: '講習',
+      category: '専門講習',
+      date: '2026/05/11',
+      organizer: '心不全研究会',
+      credits: 5,
+      certificationId: '2605110055',
+    ),
+    CreditBreakdownEntry(
+      title: '循環器地方会',
+      eventType: '学会',
+      category: '地方会参加',
+      date: '2026/02/14',
+      organizer: '日本循環器学会',
+      credits: 6,
+      certificationId: '2602140114',
+    ),
+    CreditBreakdownEntry(
+      title: '心電図判読 eラーニング',
+      eventType: '講習',
+      category: '専門講習',
+      date: '2026/01/19',
+      organizer: '認定団体',
+      credits: 4,
+      certificationId: '2601190078',
+    ),
+  ],
+};
+
+class InitialSetupScreen extends StatefulWidget {
+  const InitialSetupScreen({super.key});
+
+  @override
+  State<InitialSetupScreen> createState() => _InitialSetupScreenState();
+}
+
+class _InitialSetupScreenState extends State<InitialSetupScreen> {
+  int _currentStep = 0;
+  int _nextQualificationId = 2;
+  bool _notificationsEnabled = true;
+  final List<_QualificationDraft> _qualifications = [
+    const _QualificationDraft(
+      id: 1,
+      name: '超音波専門医',
+      organization: '認定団体（サンプル）',
+      licenseNumber: '1234567890',
+      deadline: '2026/12/31',
+    ),
+  ];
+
+  void _goToApp() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const AppShell()),
+    );
+  }
+
+  void _nextStep() {
+    if (_currentStep < 2) {
+      setState(() => _currentStep += 1);
+      return;
+    }
+    _goToApp();
+  }
+
+  void _previousStep() {
+    if (_currentStep == 0) return;
+    setState(() => _currentStep -= 1);
+  }
+
+  void _addQualification() {
+    setState(() {
+      _qualifications.add(
+        _QualificationDraft(
+          id: _nextQualificationId++,
+          name: '',
+          organization: '',
+          licenseNumber: '',
+          deadline: '',
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final page = switch (_currentStep) {
+      1 => const _ProfileSetupPage(),
+      2 => _QualificationSetupPage(
+        qualifications: _qualifications,
+        notificationsEnabled: _notificationsEnabled,
+        onNotificationsChanged: (value) {
+          setState(() => _notificationsEnabled = value);
+        },
+        onAddQualification: _addQualification,
+        onRemoveQualification: (id) {
+          setState(() {
+            _qualifications.removeWhere((item) => item.id == id);
+          });
+        },
+      ),
+      _ => const _SetupWelcomePage(),
+    };
+
+    return Scaffold(
+      appBar: _currentStep == 0
+          ? null
+          : AppBar(
+              backgroundColor: _canvas,
+              leading: IconButton(
+                tooltip: '戻る',
+                onPressed: _previousStep,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              title: const Text('初期設定'),
+            ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: ListView(
+              key: ValueKey('setup-step-$_currentStep'),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                _currentStep == 0 ? 28 : 8,
+                20,
+                28,
+              ),
+              children: [
+                const _SetupBrand(),
+                const SizedBox(height: 24),
+                _SetupProgressIndicator(currentStep: _currentStep + 1),
+                const SizedBox(height: 28),
+                page,
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: _line)),
+          ),
+          child: Center(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FilledButton(
+                    onPressed: _nextStep,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 52),
+                    ),
+                    child: Text(switch (_currentStep) {
+                      0 => '設定を始める',
+                      2 => '登録して始める',
+                      _ => '次へ',
+                    }),
+                  ),
+                  if (_currentStep == 0) ...[
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed: _goToApp,
+                      child: const Text('サンプルデータで見る'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QualificationDraft {
+  const _QualificationDraft({
+    required this.id,
+    required this.name,
+    required this.organization,
+    required this.licenseNumber,
+    required this.deadline,
+  });
+
+  final int id;
+  final String name;
+  final String organization;
+  final String licenseNumber;
+  final String deadline;
+}
+
+class _SetupBrand extends StatelessWidget {
+  const _SetupBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        _IconTile(
+          icon: Icons.workspace_premium_outlined,
+          color: Colors.white,
+          background: _primary,
+        ),
+        SizedBox(width: 12),
+        Text(
+          '資格更新ノート',
+          style: TextStyle(
+            color: _ink,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SetupProgressIndicator extends StatelessWidget {
+  const _SetupProgressIndicator({required this.currentStep});
+
+  final int currentStep;
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = ['ご案内', '本人情報', '資格登録'];
+    return Row(
+      children: List.generate(labels.length, (index) {
+        final step = index + 1;
+        final active = step <= currentStep;
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: active ? _primary : const Color(0xFFE1E6E2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: step < currentStep
+                          ? const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            )
+                          : Text(
+                              '$step',
+                              style: TextStyle(
+                                color: active ? Colors.white : Colors.blueGrey,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      labels[index],
+                      style: TextStyle(
+                        color: active ? _ink : Colors.blueGrey,
+                        fontSize: 12,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (index < labels.length - 1)
+                Container(
+                  width: 22,
+                  height: 2,
+                  margin: const EdgeInsets.only(bottom: 25),
+                  color: step < currentStep
+                      ? _primary
+                      : const Color(0xFFD8DFDA),
+                ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _SetupWelcomePage extends StatelessWidget {
+  const _SetupWelcomePage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Container(
+            width: 88,
+            height: 88,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE1F2ED),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.fact_check_outlined,
+              color: _primary,
+              size: 46,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          '資格の更新情報を\nひとつにまとめます',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          '保有資格・更新期限・必要単位を登録すると、現在の不足状況が分かるようになります。',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.blueGrey, fontSize: 15, height: 1.55),
+        ),
+        const SizedBox(height: 28),
+        const _SetupFeatureRow(
+          icon: Icons.event_available_outlined,
+          title: '更新期限をまとめて確認',
+          subtitle: '期限が近い資格から表示します',
+        ),
+        const SizedBox(height: 12),
+        const _SetupFeatureRow(
+          icon: Icons.pie_chart_outline_rounded,
+          title: '単位と必須条件を管理',
+          subtitle: '講習・学会ごとの内訳も確認できます',
+        ),
+        const SizedBox(height: 12),
+        const _SetupFeatureRow(
+          icon: Icons.document_scanner_outlined,
+          title: '参加証から実績を登録',
+          subtitle: '読み取り結果は確定前に本人が確認します',
+        ),
+        const SizedBox(height: 20),
+        const _SetupPrivacyNotice(),
+      ],
+    );
+  }
+}
+
+class _SetupFeatureRow extends StatelessWidget {
+  const _SetupFeatureRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _line),
+      ),
+      child: Row(
+        children: [
+          _IconTile(
+            icon: icon,
+            color: _primary,
+            background: const Color(0xFFE5F2EF),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SetupPrivacyNotice extends StatelessWidget {
+  const _SetupPrivacyNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF2E1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.shield_outlined, color: _warning, size: 21),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '患者情報は登録しません。表示結果は自己管理用のため、最終確認は資格団体の公式情報で行ってください。',
+              style: TextStyle(
+                color: Color(0xFF77572E),
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSetupPage extends StatelessWidget {
+  const _ProfileSetupPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('本人情報を登録', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 8),
+        const Text(
+          'アプリ内での表示に使用します。後から設定画面で変更できます。',
+          style: TextStyle(color: Colors.blueGrey, fontSize: 15, height: 1.5),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'お名前・呼び名',
+          style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 7),
+        const TextField(
+          decoration: InputDecoration(
+            hintText: '例：お父さん',
+            prefixIcon: Icon(Icons.person_outline_rounded),
+          ),
+        ),
+        const SizedBox(height: 18),
+        const Text(
+          '利用する端末',
+          style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 7),
+        const TextField(
+          decoration: InputDecoration(
+            hintText: '例：iPhone',
+            prefixIcon: Icon(Icons.smartphone_outlined),
+          ),
+        ),
+        const SizedBox(height: 22),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _IconTile(
+                  icon: Icons.lock_outline_rounded,
+                  color: _primary,
+                  background: Color(0xFFE5F2EF),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '本人専用として管理',
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'このMVPでは複数利用者や病院管理者の設定はありません。',
+                        style: TextStyle(
+                          color: Colors.blueGrey.shade600,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QualificationSetupPage extends StatelessWidget {
+  const _QualificationSetupPage({
+    required this.qualifications,
+    required this.notificationsEnabled,
+    required this.onNotificationsChanged,
+    required this.onAddQualification,
+    required this.onRemoveQualification,
+  });
+
+  final List<_QualificationDraft> qualifications;
+  final bool notificationsEnabled;
+  final ValueChanged<bool> onNotificationsChanged;
+  final VoidCallback onAddQualification;
+  final ValueChanged<int> onRemoveQualification;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('保有資格を登録', style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 8),
+        const Text(
+          '資格名・資格番号・次回更新期限を、公式資料または会員マイページで確認して入力します。',
+          style: TextStyle(color: Colors.blueGrey, fontSize: 15, height: 1.5),
+        ),
+        const SizedBox(height: 22),
+        ...qualifications.asMap().entries.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _SetupQualificationCard(
+              key: ValueKey(item.value.id),
+              number: item.key + 1,
+              draft: item.value,
+              canRemove: qualifications.length > 1,
+              onRemove: () => onRemoveQualification(item.value.id),
+            ),
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: onAddQualification,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 50),
+          ),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('資格を追加'),
+        ),
+        const SizedBox(height: 18),
+        Card(
+          child: SwitchListTile(
+            value: notificationsEnabled,
+            onChanged: onNotificationsChanged,
+            secondary: const Icon(
+              Icons.notifications_active_outlined,
+              color: _primary,
+            ),
+            title: const Text(
+              '更新期限のお知らせ',
+              style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+            ),
+            subtitle: const Text('既定：365・180・90・30・7日前'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF0F4),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline_rounded, color: _ink, size: 21),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '総単位・区分別単位・必須講習などの詳しい条件は、登録後に資格詳細から追加できます。',
+                  style: TextStyle(color: _ink, fontSize: 13, height: 1.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SetupQualificationCard extends StatelessWidget {
+  const _SetupQualificationCard({
+    super.key,
+    required this.number,
+    required this.draft,
+    required this.canRemove,
+    required this.onRemove,
+  });
+
+  final int number;
+  final _QualificationDraft draft;
+  final bool canRemove;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '資格 $number',
+                    style: const TextStyle(
+                      color: _ink,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (canRemove)
+                  IconButton(
+                    tooltip: '資格を削除',
+                    onPressed: onRemove,
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              initialValue: draft.name,
+              decoration: const InputDecoration(labelText: '資格名'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: draft.organization,
+              decoration: const InputDecoration(labelText: '認定団体'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: draft.licenseNumber,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '資格番号（任意）',
+                hintText: '会員証・認定証を確認',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: draft.deadline,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '次回更新期限',
+                hintText: 'YYYY/MM/DD',
+                suffixIcon: Icon(Icons.event_outlined),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -785,6 +1626,8 @@ class QualificationDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = _statusStyle(qualification.state);
+    final creditEntries =
+        creditBreakdownByQualification[qualification.name] ?? const [];
     return Scaffold(
       appBar: AppBar(
         title: const Text('資格の詳細'),
@@ -899,7 +1742,46 @@ class QualificationDetailScreen extends StatelessWidget {
                     child: RequirementCard(requirement: requirement),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '単位の内訳',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    Text(
+                      '${creditEntries.length}件・合計${_formatNumber(creditEntries.fold<double>(0, (sum, entry) => sum + entry.credits))}単位',
+                      style: const TextStyle(
+                        color: _primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '講習・学会ごとの取得単位を確認できます',
+                  style: TextStyle(color: Colors.blueGrey.shade600),
+                ),
+                const SizedBox(height: 12),
+                _CreditBreakdownSummary(entries: creditEntries),
+                const SizedBox(height: 12),
+                ...creditEntries.map(
+                  (entry) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: CreditBreakdownCard(
+                      entry: entry,
+                      onTap: () => _showCreditBreakdownDetail(
+                        context,
+                        qualification,
+                        entry,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
                 Card(
                   child: Column(
                     children: [
@@ -1091,6 +1973,216 @@ class RequirementCard extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CreditBreakdownSummary extends StatelessWidget {
+  const _CreditBreakdownSummary({required this.entries});
+
+  final List<CreditBreakdownEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final conferenceCredits = entries
+        .where((entry) => entry.eventType == '学会')
+        .fold<double>(0, (sum, entry) => sum + entry.credits);
+    final lectureCredits = entries
+        .where((entry) => entry.eventType == '講習')
+        .fold<double>(0, (sum, entry) => sum + entry.credits);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _BreakdownTotalTile(
+            icon: Icons.groups_2_outlined,
+            label: '学会・発表',
+            value: '${_formatNumber(conferenceCredits)}単位',
+            color: _ink,
+            background: const Color(0xFFEAF0F4),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _BreakdownTotalTile(
+            icon: Icons.school_outlined,
+            label: '講習',
+            value: '${_formatNumber(lectureCredits)}単位',
+            color: _primary,
+            background: const Color(0xFFE5F2EF),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BreakdownTotalTile extends StatelessWidget {
+  const _BreakdownTotalTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.background,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CreditBreakdownCard extends StatelessWidget {
+  const CreditBreakdownCard({
+    super.key,
+    required this.entry,
+    required this.onTap,
+  });
+
+  final CreditBreakdownEntry entry;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isConference = entry.eventType == '学会';
+    final color = isConference ? _ink : _primary;
+    final background = isConference
+        ? const Color(0xFFEAF0F4)
+        : const Color(0xFFE5F2EF);
+
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _IconTile(
+                icon: isConference
+                    ? Icons.groups_2_outlined
+                    : Icons.school_outlined,
+                color: color,
+                background: background,
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            entry.title,
+                            style: const TextStyle(
+                              color: _ink,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '${_formatNumber(entry.credits)}単位',
+                          style: const TextStyle(
+                            color: _primary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${entry.date} ・ ${entry.organizer}',
+                      style: const TextStyle(
+                        color: Colors.blueGrey,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 6,
+                      children: [
+                        _MiniPill(label: entry.eventType),
+                        _MiniPill(label: entry.category, emphasized: true),
+                      ],
+                    ),
+                    const SizedBox(height: 9),
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.badge_outlined,
+                          color: Colors.blueGrey,
+                          size: 17,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'タップして10桁IDを確認',
+                          style: TextStyle(
+                            color: Colors.blueGrey,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 38),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.blueGrey,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2579,6 +3671,154 @@ void _showActivitySheet(BuildContext context, _ActivityData activity) {
       ),
     ),
   );
+}
+
+void _showCreditBreakdownDetail(
+  BuildContext context,
+  Qualification qualification,
+  CreditBreakdownEntry entry,
+) {
+  final isConference = entry.eventType == '学会';
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 2, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _StatusChip(
+                  label: entry.eventType,
+                  foreground: isConference ? _ink : _primary,
+                  background: isConference
+                      ? const Color(0xFFEAF0F4)
+                      : const Color(0xFFE5F2EF),
+                ),
+                const Spacer(),
+                Text(
+                  '${_formatNumber(entry.credits)}単位',
+                  style: const TextStyle(
+                    color: _primary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(entry.title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 7),
+            Text(
+              '${entry.date} ・ ${entry.organizer}',
+              style: const TextStyle(color: Colors.blueGrey),
+            ),
+            const SizedBox(height: 22),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: _ink,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.badge_outlined, color: Color(0xFFBFD0DC)),
+                      SizedBox(width: 8),
+                      Text(
+                        '認定ID（10桁）',
+                        style: TextStyle(
+                          color: Color(0xFFBFD0DC),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    entry.certificationId,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      letterSpacing: 2.4,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  const Text(
+                    '参加証・会員マイページとの照合に使用します',
+                    style: TextStyle(color: Color(0xFFD8E2E9), fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Card(
+              child: Column(
+                children: [
+                  _BreakdownDetailRow(label: '単位区分', value: entry.category),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  const _BreakdownDetailRow(label: '証明書', value: '登録済み'),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _BreakdownDetailRow(label: '反映先', value: qualification.name),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.check_rounded),
+              label: const Text('確認しました'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _BreakdownDetailRow extends StatelessWidget {
+  const _BreakdownDetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 76,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(color: _ink, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 void _noop() {}
