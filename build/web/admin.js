@@ -251,7 +251,7 @@
     elements.dialogIcon.textContent = publish ? '✓' : '×';
     elements.dialogTitle.textContent = publish ? 'この条件を公開しますか？' : 'この候補を却下しますか？';
     elements.dialogMessage.textContent = publish
-      ? '承認後は公開APIから取得でき、対象資格の更新条件としてアプリへ反映されます。'
+        ? '承認後は公開APIから取得できるようになります。利用者アプリとの条件同期は別途必要です。'
       : '却下した候補は確認待ち一覧から外れます。公式資料そのものは保存されます。';
     elements.dialogConfirm.textContent = publish ? '公開する' : '却下する';
     elements.dialogConfirm.className = publish ? 'button primary' : 'button danger';
@@ -272,7 +272,7 @@
         ...(action === 'publish' ? { rule } : {}),
       }) });
       const message = action === 'publish'
-        ? '承認した条件を公開しました。アプリのAPIへ反映済みです。' : '候補を却下しました。';
+        ? '承認した条件を公開APIへ反映しました。' : '候補を却下しました。';
       state.selectedId = null; await loadRules({ preserveSelection: false }); showBanner('success', message);
     } catch (error) {
       if (String(error.message).includes('トークン')) showLogin(error.message);
