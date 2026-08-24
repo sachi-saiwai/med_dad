@@ -13,9 +13,12 @@ export default async function handler(
   try {
     assertCronAuthorization(bearerHeader(request));
     const parsedLimit = Number.parseInt(queryString(request, 'limit') || '5', 10);
+    const parsedSourceId = Number.parseInt(queryString(request, 'sourceId') || '', 10);
     const summary = await runSourceSync({
       triggerType: request.headers['x-github-event'] ? 'github_actions' : 'cron',
       limit: Number.isFinite(parsedLimit) ? parsedLimit : 5,
+      sourceId: Number.isFinite(parsedSourceId) ? parsedSourceId : undefined,
+      force: queryString(request, 'force') === 'true',
     });
     return response.status(summary.status === 'failed' ? 502 : 200).json(summary);
   } catch (error) {

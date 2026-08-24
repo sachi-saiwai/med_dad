@@ -310,6 +310,18 @@ for (const source of sources) {
   );
 }
 
+const directSurgeryRuleUrls = sources
+  .filter((source) => source.qualificationName === '外科専門医')
+  .map((source) => source.url);
+await db().query(
+  `UPDATE source_documents
+      SET qualification_id = NULL,
+          updated_at = now()
+    WHERE qualification_id = $1
+      AND source_url <> ALL($2::text[])`,
+  [stableId('qual', '外科専門医'), directSurgeryRuleUrls],
+);
+
 await db().query(
   `UPDATE renewal_rule_versions rv
       SET renewal_year_from = sd.renewal_year_from,

@@ -169,6 +169,23 @@ const profiles: SurgeryProfile[] = [
   })),
 ];
 
+await db().query(
+  `UPDATE renewal_rule_versions rv
+      SET status = 'rejected',
+          reviewed_at = now(),
+          review_note = '外科専門医の直接の更新条件ではない周辺資料のため、候補から除外しました。',
+          reviewed_by = 'system-source-cleanup'
+     FROM source_snapshots ss
+     JOIN source_documents sd ON sd.id = ss.source_document_id
+    WHERE rv.source_snapshot_id = ss.id
+      AND rv.qualification_id = (
+        SELECT id FROM qualifications WHERE name = '外科専門医' LIMIT 1
+      )
+      AND rv.status = 'pending_review'
+      AND sd.source_url <> ALL($1::text[])`,
+  [profiles.map((profile) => profile.url)],
+);
+
 interface RuleRow {
   id: string;
   status: string;
