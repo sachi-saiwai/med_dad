@@ -590,6 +590,7 @@ const qualificationCatalog = <QualificationCatalogEntry>[
     organization: '日本乳癌学会',
     category: '学会認定（旧制度）',
     keywords: ['外科', '乳腺', '乳がん', '乳癌'],
+    parentQualification: surgeryBaseQualificationName,
   ),
   QualificationCatalogEntry(
     name: '大腸肛門病専門医',
