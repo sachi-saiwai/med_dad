@@ -30,6 +30,7 @@ interface SyncOptions {
   triggerType: 'cron' | 'github_actions' | 'manual';
   limit?: number;
   sourceId?: number;
+  qualificationId?: string;
   force?: boolean;
 }
 
@@ -255,6 +256,10 @@ export const runSourceSync = async (options: SyncOptions): Promise<SyncSummary> 
       OR last_checked_at IS NULL
       OR last_checked_at <= now() - make_interval(hours => fetch_interval_hours)
     )`;
+  }
+  if (options.qualificationId) {
+    params.push(options.qualificationId);
+    where += ` AND qualification_id = $${params.length}`;
   }
   params.push(limit);
   const sources = (await db().query(

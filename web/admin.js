@@ -5,7 +5,7 @@
   const elements = {
     loginView: $('login-view'), dashboardView: $('dashboard-view'), loginForm: $('login-form'),
     token: $('admin-token'), toggleToken: $('toggle-token'), loginError: $('login-error'),
-    refresh: $('refresh-button'), logout: $('logout-button'), dashboardError: $('dashboard-error'),
+    refresh: $('refresh-button'), syncSources: $('sync-sources-button'), logout: $('logout-button'), dashboardError: $('dashboard-error'),
     dashboardMessage: $('dashboard-message'), queueLoading: $('queue-loading'), queueEmpty: $('queue-empty'),
     queueList: $('queue-list'), queueCount: $('queue-count'), reviewEmpty: $('review-empty'),
     reviewPanel: $('review-panel'), pendingCount: $('pending-count'), publishedCount: $('published-count'),
@@ -65,6 +65,7 @@
   const setBusy = (busy) => {
     state.busy = busy;
     elements.refresh.disabled = busy;
+    elements.syncSources.disabled = busy || state.selectedId === null;
     elements.publish.disabled = busy;
     elements.reject.disabled = busy;
     elements.publish.textContent = busy ? '処理中…' : '確認して公開';
@@ -289,6 +290,28 @@
     } finally { setBusy(false); }
   };
 
+  const syncSelectedQualification = async () => {
+    if (state.busy || state.selectedId === null) return;
+    const selected = state.rules.find((item) => String(item.id) === String(state.selectedId));
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const response = await fetch('/api/admin/sync', {
+        method: 'POST', cache: 'no-store',
+        headers: { Authorization: `Bearer ${state.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qualificationId: selected.qualification_id, limit: 20, force: true }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.status === 401) throw new Error('管理用トークンが違います。');
+      if (!response.ok) throw new Error(result.message || result.error || `HTTP ${response.status}`);
+      await loadRules({ preserveSelection: true });
+      showBanner('success', `公式資料を${result.sourcesChecked || 0}件確認し、${result.rulesProposed || 0}件の候補を追加しました。`);
+    } catch (error) {
+      if (String(error.message).includes('トークン')) showLogin(error.message);
+      else showBanner('error', `公式資料を取得できませんでした（${error.message}）`);
+    } finally { setBusy(false); }
+  };
+
   elements.loginForm.addEventListener('submit', async (event) => {
     event.preventDefault(); elements.loginError.hidden = true; state.token = elements.token.value.trim();
     if (!state.token) return; sessionStorage.setItem('medlicense_admin_token', state.token);
@@ -307,6 +330,7 @@
     elements.toggleToken.textContent = reveal ? '隠す' : '表示';
   });
   elements.refresh.addEventListener('click', () => loadRules().catch(() => {}));
+  elements.syncSources.addEventListener('click', syncSelectedQualification);
   elements.logout.addEventListener('click', () => showLogin());
   elements.addRequirement.addEventListener('click', () => addRequirementRow());
   elements.evidenceSearch.addEventListener('input', renderEvidence);
