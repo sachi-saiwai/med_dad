@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:medlicense/med_license_app.dart';
+import 'package:medlicense/services/official_rule_service.dart';
 
 void main() {
   Future<void> openSampleHome(WidgetTester tester) async {
@@ -334,14 +337,124 @@ void main() {
 
     await tester.scrollUntilVisible(
       find.text('日本超音波医学会 第99回学術集会'),
-      300,
+      100,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.ensureVisible(find.text('日本超音波医学会 第99回学術集会'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('日本超音波医学会 第99回学術集会'));
     await tester.pumpAndSettle();
 
     expect(find.text('認定ID（10桁）'), findsOneWidget);
     expect(find.text('2605290099'), findsOneWidget);
     expect(find.text('反映先'), findsOneWidget);
+  });
+
+  testWidgets('qualification detail automatically loads a published rule', (
+    tester,
+  ) async {
+    final completer = Completer<OfficialRuleLookup>();
+    const qualification = Qualification(
+      name: '外科専門医',
+      organization: '日本専門医機構／日本外科学会',
+      deadline: '2027年12月31日',
+      remainingDays: 400,
+      state: QualificationState.needsAttention,
+      total: 0,
+      requiredTotal: 0,
+      headline: '公式の更新条件を取得・確認中です',
+      requirements: [],
+      hasVerifiedRequirements: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: QualificationDetailScreen(
+          qualification: qualification,
+          officialRuleLoader: (_) => completer.future,
+        ),
+      ),
+    );
+    expect(find.text('条件を自動取得しています'), findsOneWidget);
+
+    completer.complete(
+      OfficialRuleLookup(
+        qualificationFound: true,
+        rule: OfficialRenewalRule(
+          id: 1,
+          systemType: '日本専門医機構認定',
+          renewalCycleYears: 5,
+          requiredTotalCredits: 50,
+          requirements: const [
+            OfficialRequirement(
+              label: '外科領域講習',
+              unit: '単位',
+              mandatory: true,
+              minimum: 20,
+            ),
+          ],
+          mandatoryNotes: const ['勤務実態の自己申告が必要'],
+          otherConditions: const ['診療実績の証明が必要'],
+          source: OfficialRuleSource(
+            title: '外科領域 専門医更新基準 2024',
+            url: 'https://example.com/rule.pdf',
+            checkedAt: DateTime.utc(2026, 8, 24),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('承認済みの公式条件'), findsOneWidget);
+    expect(find.text('必要総単位 50単位'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('外科領域講習'),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('外科領域講習'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('勤務実態の自己申告が必要'),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('勤務実態の自己申告が必要'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('公式資料を2026年8月24日に確認'),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('公式資料を2026年8月24日に確認'), findsOneWidget);
+  });
+
+  testWidgets('qualification detail explains when no rule is published', (
+    tester,
+  ) async {
+    const qualification = Qualification(
+      name: '外科専門医',
+      organization: '日本専門医機構／日本外科学会',
+      deadline: '未登録',
+      remainingDays: 0,
+      state: QualificationState.needsAttention,
+      total: 0,
+      requiredTotal: 0,
+      headline: '公式の更新条件を取得・確認中です',
+      requirements: [],
+      hasVerifiedRequirements: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: QualificationDetailScreen(
+          qualification: qualification,
+          officialRuleLoader: (_) async =>
+              const OfficialRuleLookup(qualificationFound: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('承認済みの更新条件はまだありません'), findsWidgets);
+    expect(find.text('再取得する'), findsOneWidget);
   });
 }

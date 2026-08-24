@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'data/app_controller.dart';
 import 'data/app_state.dart';
 import 'services/attachment_service.dart';
+import 'services/official_rule_service.dart';
 
 const _ink = Color(0xFF18324A);
 const _primary = Color(0xFF2D6A63);
@@ -162,6 +164,13 @@ class Qualification {
     required this.headline,
     required this.requirements,
     this.hasVerifiedRequirements = true,
+    this.systemType,
+    this.renewalCycleYears,
+    this.sourceTitle,
+    this.sourceUrl,
+    this.sourceCheckedAt,
+    this.mandatoryNotes = const [],
+    this.otherConditions = const [],
   });
 
   final String name;
@@ -174,6 +183,13 @@ class Qualification {
   final String headline;
   final List<RequirementProgress> requirements;
   final bool hasVerifiedRequirements;
+  final String? systemType;
+  final double? renewalCycleYears;
+  final String? sourceTitle;
+  final String? sourceUrl;
+  final DateTime? sourceCheckedAt;
+  final List<String> mandatoryNotes;
+  final List<String> otherConditions;
 
   double get progress =>
       requiredTotal <= 0 ? 0 : (total / requiredTotal).clamp(0, 1);
@@ -772,6 +788,68 @@ Qualification qualificationFromStored(StoredQualification stored) {
     headline: '公式の更新条件を取得・確認中です',
     requirements: const [],
     hasVerifiedRequirements: false,
+  );
+}
+
+Qualification qualificationWithOfficialRule(
+  Qualification qualification,
+  OfficialRenewalRule rule,
+) {
+  final requiredTotal = rule.requiredTotalCredits ?? 0;
+  final requirements = <RequirementProgress>[];
+  if (requiredTotal > 0) {
+    requirements.add(
+      RequirementProgress(
+        label: '総単位',
+        current: qualification.total,
+        requiredValue: requiredTotal,
+        unit: '単位',
+        note: '資格更新に必要な合計',
+      ),
+    );
+  }
+  for (final requirement in rule.requirements) {
+    final target = requirement.trackingTarget;
+    if (target == null || target <= 0) continue;
+    final duplicatesTotal =
+        requiredTotal > 0 &&
+        target == requiredTotal &&
+        (requirement.label.contains('更新単位') ||
+            requirement.label.contains('総単位'));
+    if (duplicatesTotal) continue;
+    final notes = <String>[
+      if (requirement.mandatory) '必須',
+      if (requirement.maximum != null)
+        '上限 ${_formatNumber(requirement.maximum!)}${requirement.unit}',
+    ];
+    requirements.add(
+      RequirementProgress(
+        label: requirement.label,
+        current: 0,
+        requiredValue: target,
+        unit: requirement.unit,
+        note: notes.isEmpty ? null : notes.join('・'),
+      ),
+    );
+  }
+  return Qualification(
+    name: qualification.name,
+    organization: qualification.organization,
+    deadline: qualification.deadline,
+    remainingDays: qualification.remainingDays,
+    state: qualification.state,
+    total: qualification.total,
+    requiredTotal: requiredTotal,
+    headline: '承認済みの公式更新条件を自動取得しました',
+    requirements: requirements,
+    hasVerifiedRequirements: true,
+    systemType: rule.systemType,
+    renewalCycleYears: rule.renewalCycleYears,
+    sourceTitle: rule.source.title,
+    sourceUrl: rule.source.url,
+    sourceCheckedAt: rule.source.checkedAt,
+    mandatoryNotes: rule.mandatoryNotes,
+    otherConditions: rule.otherConditions,
   );
 }
 
@@ -2885,13 +2963,102 @@ class _OfficialInfoNote extends StatelessWidget {
   }
 }
 
-class QualificationDetailScreen extends StatelessWidget {
-  const QualificationDetailScreen({super.key, required this.qualification});
+enum _OfficialRuleViewState { ready, loading, unavailable, failed }
+
+class QualificationDetailScreen extends StatefulWidget {
+  const QualificationDetailScreen({
+    super.key,
+    required this.qualification,
+    this.officialRuleLoader,
+  });
 
   final Qualification qualification;
+  final OfficialRuleLoader? officialRuleLoader;
+
+  @override
+  State<QualificationDetailScreen> createState() =>
+      _QualificationDetailScreenState();
+}
+
+class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
+  late Qualification _qualification;
+  late _OfficialRuleViewState _ruleState;
+  String? _ruleError;
+
+  @override
+  void initState() {
+    super.initState();
+    _qualification = widget.qualification;
+    _ruleState = _qualification.hasVerifiedRequirements
+        ? _OfficialRuleViewState.ready
+        : _OfficialRuleViewState.loading;
+    if (!_qualification.hasVerifiedRequirements) {
+      unawaited(_loadOfficialRule());
+    }
+  }
+
+  Future<void> _loadOfficialRule() async {
+    if (mounted) {
+      setState(() {
+        _ruleState = _OfficialRuleViewState.loading;
+        _ruleError = null;
+      });
+    }
+    try {
+      final loader =
+          widget.officialRuleLoader ??
+          const OfficialRuleService().fetchForQualification;
+      final lookup = await loader(widget.qualification.name);
+      if (!mounted) return;
+      setState(() {
+        final rule = lookup.rule;
+        if (rule == null) {
+          _ruleState = _OfficialRuleViewState.unavailable;
+        } else {
+          _qualification = qualificationWithOfficialRule(
+            widget.qualification,
+            rule,
+          );
+          _ruleState = _OfficialRuleViewState.ready;
+        }
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _ruleState = _OfficialRuleViewState.failed;
+        _ruleError = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  String get _ringLabel => switch (_ruleState) {
+    _OfficialRuleViewState.ready when _qualification.requiredTotal > 0 =>
+      '${(_qualification.progress * 100).round()}%',
+    _OfficialRuleViewState.ready => '取得済',
+    _OfficialRuleViewState.loading => '取得中',
+    _OfficialRuleViewState.unavailable => '未公開',
+    _OfficialRuleViewState.failed => '再取得',
+  };
+
+  String get _progressLabel => switch (_ruleState) {
+    _OfficialRuleViewState.ready when _qualification.requiredTotal > 0 =>
+      '${_formatNumber(_qualification.total)} / ${_formatNumber(_qualification.requiredTotal)} 単位',
+    _OfficialRuleViewState.ready => '公式条件を取得しました',
+    _OfficialRuleViewState.loading => '条件を自動取得しています',
+    _OfficialRuleViewState.unavailable => '承認済み条件はまだありません',
+    _OfficialRuleViewState.failed => '条件を取得できませんでした',
+  };
+
+  String get _headline => switch (_ruleState) {
+    _OfficialRuleViewState.ready => _qualification.headline,
+    _OfficialRuleViewState.loading => '公開APIから最新条件を確認中です',
+    _OfficialRuleViewState.unavailable => '管理画面で承認されると自動表示されます',
+    _OfficialRuleViewState.failed => '通信状況を確認して再取得してください',
+  };
 
   @override
   Widget build(BuildContext context) {
+    final qualification = _qualification;
     final status = _statusStyle(qualification.state);
     final creditEntries =
         creditBreakdownByQualification[qualification.name] ?? const [];
@@ -2942,7 +3109,11 @@ class QualificationDetailScreen extends StatelessWidget {
                             children: [
                               SizedBox.expand(
                                 child: CircularProgressIndicator(
-                                  value: qualification.progress,
+                                  value:
+                                      _ruleState ==
+                                          _OfficialRuleViewState.loading
+                                      ? null
+                                      : qualification.progress,
                                   strokeWidth: 9,
                                   backgroundColor: Colors.white.withValues(
                                     alpha: .14,
@@ -2951,9 +3122,7 @@ class QualificationDetailScreen extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                qualification.hasVerifiedRequirements
-                                    ? '${(qualification.progress * 100).round()}%'
-                                    : '確認中',
+                                _ringLabel,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
@@ -2977,9 +3146,7 @@ class QualificationDetailScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 5),
                               Text(
-                                qualification.hasVerifiedRequirements
-                                    ? '${qualification.total.toInt()} / ${qualification.requiredTotal.toInt()} 単位'
-                                    : '条件を取得しています',
+                                _progressLabel,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 22,
@@ -2988,7 +3155,7 @@ class QualificationDetailScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 10),
                               Text(
-                                qualification.headline,
+                                _headline,
                                 style: TextStyle(
                                   color: status.background,
                                   fontSize: 14,
@@ -3008,21 +3175,27 @@ class QualificationDetailScreen extends StatelessWidget {
                 const _SectionHeading(title: '更新条件'),
                 const SizedBox(height: 12),
                 if (!qualification.hasVerifiedRequirements)
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        '認定団体の公式ページ・PDFを確認し、制度区分と取得年度に合う条件を出典付きで表示します。確認が終わるまでは自動計算しません。',
-                        style: TextStyle(color: Colors.blueGrey, height: 1.5),
-                      ),
-                    ),
-                  ),
+                  _OfficialRuleStateCard(
+                    state: _ruleState,
+                    error: _ruleError,
+                    onRetry: _loadOfficialRule,
+                  )
+                else ...[
+                  _OfficialRuleSummary(qualification: qualification),
+                  const SizedBox(height: 10),
+                ],
                 ...qualification.requirements.map(
                   (requirement) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: RequirementCard(requirement: requirement),
                   ),
                 ),
+                if (qualification.hasVerifiedRequirements &&
+                    (qualification.mandatoryNotes.isNotEmpty ||
+                        qualification.otherConditions.isNotEmpty)) ...[
+                  const SizedBox(height: 2),
+                  _OfficialConditionsCard(qualification: qualification),
+                ],
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -3102,9 +3275,15 @@ class QualificationDetailScreen extends StatelessWidget {
                           '規定・根拠資料',
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
-                        subtitle: const Text('公式資料を2026年8月20日に確認'),
+                        subtitle: Text(
+                          qualification.sourceCheckedAt == null
+                              ? '承認済みの公式資料はまだありません'
+                              : '公式資料を${_formatJapaneseDate(qualification.sourceCheckedAt!)}に確認',
+                        ),
                         trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => _showEvidenceSheet(context),
+                        onTap: qualification.sourceUrl == null
+                            ? null
+                            : () => _showEvidenceSheet(context, qualification),
                       ),
                     ],
                   ),
@@ -3125,6 +3304,239 @@ class QualificationDetailScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _OfficialRuleStateCard extends StatelessWidget {
+  const _OfficialRuleStateCard({
+    required this.state,
+    required this.onRetry,
+    this.error,
+  });
+
+  final _OfficialRuleViewState state;
+  final String? error;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final loading = state == _OfficialRuleViewState.loading;
+    final failed = state == _OfficialRuleViewState.failed;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              )
+            else
+              Icon(
+                failed
+                    ? Icons.cloud_off_outlined
+                    : Icons.pending_actions_outlined,
+                color: failed ? _danger : _warning,
+              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    loading
+                        ? '承認済みの更新条件を自動取得しています'
+                        : failed
+                        ? '更新条件を取得できませんでした'
+                        : '承認済みの更新条件はまだありません',
+                    style: const TextStyle(
+                      color: _ink,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    loading
+                        ? '資格名に一致する制度区分・単位条件・出典を確認しています。'
+                        : failed
+                        ? (error ?? '通信状況を確認して再度お試しください。')
+                        : '管理画面で公式資料の内容を承認すると、この画面へ自動表示されます。',
+                    style: const TextStyle(color: Colors.blueGrey, height: 1.5),
+                  ),
+                  if (!loading) ...[
+                    const SizedBox(height: 10),
+                    TextButton.icon(
+                      onPressed: onRetry,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('再取得する'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OfficialRuleSummary extends StatelessWidget {
+  const _OfficialRuleSummary({required this.qualification});
+
+  final Qualification qualification;
+
+  @override
+  Widget build(BuildContext context) {
+    final cycle = qualification.renewalCycleYears;
+    final total = qualification.requiredTotal;
+    return Card(
+      color: const Color(0xFFE5F2EF),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.verified_rounded, color: _primary, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  '承認済みの公式条件',
+                  style: TextStyle(
+                    color: _primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (qualification.systemType != null)
+                  _RuleFactChip(label: qualification.systemType!),
+                if (cycle != null)
+                  _RuleFactChip(label: '更新周期 ${_formatNumber(cycle)}年'),
+                if (total > 0)
+                  _RuleFactChip(label: '必要総単位 ${_formatNumber(total)}単位'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RuleFactChip extends StatelessWidget {
+  const _RuleFactChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .82),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: _ink,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _OfficialConditionsCard extends StatelessWidget {
+  const _OfficialConditionsCard({required this.qualification});
+
+  final Qualification qualification;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (qualification.mandatoryNotes.isNotEmpty) ...[
+              const Text(
+                '必須事項',
+                style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              ...qualification.mandatoryNotes.map(
+                (item) => _ConditionBullet(text: item, color: _warning),
+              ),
+            ],
+            if (qualification.mandatoryNotes.isNotEmpty &&
+                qualification.otherConditions.isNotEmpty)
+              const Divider(height: 24),
+            if (qualification.otherConditions.isNotEmpty) ...[
+              const Text(
+                'その他の条件',
+                style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              ...qualification.otherConditions.map(
+                (item) => _ConditionBullet(text: item, color: _primary),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConditionBullet extends StatelessWidget {
+  const _ConditionBullet({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: _ink, fontSize: 13, height: 1.55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatJapaneseDate(DateTime date) {
+  final local = date.toLocal();
+  return '${local.year}年${local.month}月${local.day}日';
 }
 
 class _DeadlineRow extends StatelessWidget {
@@ -5006,7 +5418,7 @@ void _showPrototypeMessage(BuildContext context, String message) {
     ..showSnackBar(SnackBar(content: Text(message)));
 }
 
-void _showEvidenceSheet(BuildContext context) {
+void _showEvidenceSheet(BuildContext context, Qualification qualification) {
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -5018,28 +5430,55 @@ void _showEvidenceSheet(BuildContext context) {
         children: [
           Text('規定・根拠資料', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16),
-          const ListTile(
+          ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: _IconTile(
+            leading: const _IconTile(
               icon: Icons.picture_as_pdf_outlined,
               color: _danger,
               background: Color(0xFFF8E8E5),
             ),
             title: Text(
-              '専門医更新規定 2026年度版',
-              style: TextStyle(fontWeight: FontWeight.w800),
+              qualification.sourceTitle ?? '認定団体の公式資料',
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-            subtitle: Text('確認日：2026年8月20日'),
+            subtitle: Text(
+              qualification.sourceCheckedAt == null
+                  ? '確認日：未取得'
+                  : '確認日：${_formatJapaneseDate(qualification.sourceCheckedAt!)}',
+            ),
           ),
           const SizedBox(height: 8),
           const Text(
-            '条件はAIの推測ではなく、登録した公式資料に基づいています。',
+            '管理画面で内容を確認・承認した条件だけを表示しています。更新申請前には必ず最新の公式資料もご確認ください。',
             style: TextStyle(color: Colors.blueGrey, height: 1.5),
           ),
+          if (qualification.sourceUrl != null) ...[
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => unawaited(
+                  _openOfficialSource(context, qualification.sourceUrl!),
+                ),
+                icon: const Icon(Icons.open_in_new_rounded),
+                label: const Text('公式資料を開く'),
+              ),
+            ),
+          ],
         ],
       ),
     ),
   );
+}
+
+Future<void> _openOfficialSource(BuildContext context, String sourceUrl) async {
+  final opened = await launchUrl(
+    Uri.parse(sourceUrl),
+    mode: LaunchMode.externalApplication,
+  );
+  if (!opened && context.mounted) {
+    _showPrototypeMessage(context, '公式資料を開けませんでした');
+  }
 }
 
 void _showActivitySheet(BuildContext context, _ActivityData activity) {

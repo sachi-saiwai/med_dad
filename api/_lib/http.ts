@@ -5,7 +5,9 @@ export const publicCors = (response: ApiResponse): void => {
   response.setHeader('Access-Control-Allow-Origin', '*');
   response.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  response.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
+  // Published rule changes should be visible to the app immediately after an
+  // administrator approves them.
+  response.setHeader('Cache-Control', 'no-store');
 };
 
 export const queryString = (
