@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base href="/">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#18324a">
+  <title>更新条件レビュー | 資格更新ノート</title>
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <main id="login-view" class="login-shell">
+    <section class="login-card">
+      <div class="brand-mark" aria-hidden="true">資</div>
+      <p class="eyebrow">資格更新ノート</p>
+      <h1>更新条件レビュー</h1>
+      <p class="lead">公式資料から抽出した条件を確認し、承認済みの内容だけをアプリへ反映します。</p>
+      <form id="login-form">
+        <label for="admin-token">管理用トークン</label>
+        <div class="password-row">
+          <input id="admin-token" name="token" type="password" autocomplete="current-password" required>
+          <button id="toggle-token" class="icon-button" type="button" aria-label="トークンを表示">表示</button>
+        </div>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+        <button class="button primary wide" type="submit">確認待ちを開く</button>
+      </form>
+      <p class="security-note">トークンはこのタブ内にだけ一時保存し、タブを閉じると削除されます。</p>
+    </section>
+  </main>
+
+  <main id="dashboard-view" class="dashboard" hidden>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">資格更新ノート</p>
+        <h1>公式条件レビュー</h1>
+      </div>
+      <div class="topbar-actions">
+        <span id="sync-indicator" class="sync-indicator">同期状況を確認中</span>
+        <button id="refresh-button" class="button secondary" type="button">更新</button>
+        <button id="logout-button" class="button ghost" type="button">ログアウト</button>
+      </div>
+    </header>
+
+    <section class="stats" aria-label="条件の件数">
+      <article class="stat-card attention">
+        <span>確認待ち</span>
+        <strong id="pending-count">—</strong>
+      </article>
+      <article class="stat-card">
+        <span>公開済み</span>
+        <strong id="published-count">—</strong>
+      </article>
+      <article class="stat-card muted">
+        <span>却下</span>
+        <strong id="rejected-count">—</strong>
+      </article>
+      <article class="stat-card">
+        <span>最終確認</span>
+        <strong id="latest-sync">—</strong>
+      </article>
+    </section>
+
+    <p id="dashboard-error" class="banner error" role="alert" hidden></p>
+    <p id="dashboard-message" class="banner success" role="status" hidden></p>
+
+    <section class="workspace">
+      <aside class="queue-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">REVIEW QUEUE</p>
+            <h2>確認待ち</h2>
+          </div>
+          <span id="queue-count" class="count-badge">0件</span>
+        </div>
+        <div id="queue-loading" class="loading-state">読み込み中…</div>
+        <div id="queue-empty" class="empty-state" hidden>
+          <div class="empty-icon">✓</div>
+          <h3>確認待ちはありません</h3>
+          <p>次回の公式資料取得後に、新しい候補がここへ表示されます。</p>
+        </div>
+        <div id="queue-list" class="queue-list"></div>
+      </aside>
+
+      <section id="review-empty" class="review-empty">
+        <div>
+          <span class="review-empty-icon">↖</span>
+          <h2>条件を選択してください</h2>
+          <p>左の一覧から確認する資格を選びます。</p>
+        </div>
+      </section>
+
+      <section id="review-panel" class="review-panel" hidden>
+        <div class="review-header">
+          <div>
+            <div class="title-line">
+              <span id="confidence-badge" class="confidence-badge"></span>
+              <span id="rule-id" class="rule-id"></span>
+            </div>
+            <h2 id="qualification-name"></h2>
+            <p id="source-title" class="source-title"></p>
+          </div>
+          <a id="source-link" class="button secondary" target="_blank" rel="noopener noreferrer">公式資料を開く ↗</a>
+        </div>
+
+        <div id="warnings" class="warning-box" hidden>
+          <h3>公開前に確認が必要です</h3>
+          <ul id="warning-list"></ul>
+        </div>
+
+        <div class="review-columns">
+          <form id="rule-form" class="editor-column">
+            <section class="section-card">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">STRUCTURED DATA</p>
+                  <h3>アプリへ反映する条件</h3>
+                </div>
+                <span class="editable-label">編集可</span>
+              </div>
+
+              <div class="field-grid">
+                <label class="field span-2">
+                  <span>制度区分</span>
+                  <input id="system-type" required maxlength="100">
+                </label>
+                <label class="field">
+                  <span>取得年度（開始）</span>
+                  <input id="year-from" type="number" min="1900" max="2200" placeholder="指定なし">
+                </label>
+                <label class="field">
+                  <span>取得年度（終了）</span>
+                  <input id="year-to" type="number" min="1900" max="2200" placeholder="指定なし">
+                </label>
+                <label class="field">
+                  <span>更新周期</span>
+                  <div class="unit-input"><input id="cycle-years" type="number" min="1" max="20" step="0.5"><b>年</b></div>
+                </label>
+                <label class="field">
+                  <span>必要総単位</span>
+                  <div class="unit-input"><input id="total-credits" type="number" min="0" max="100000" step="0.5"><b>単位</b></div>
+                </label>
+              </div>
+            </section>
+
+            <section class="section-card">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">REQUIREMENTS</p>
+                  <h3>区分別・必須条件</h3>
+                </div>
+                <button id="add-requirement" class="button small secondary" type="button">＋ 条件を追加</button>
+              </div>
+              <div id="requirements-list" class="requirements-list"></div>
+              <p id="requirements-empty" class="inline-empty" hidden>区分別条件が抽出されていません。必要なら追加してください。</p>
+            </section>
+
+            <section class="section-card">
+              <div class="field-grid">
+                <label class="field span-2">
+                  <span>必須事項 <small>1行につき1項目</small></span>
+                  <textarea id="mandatory-notes" rows="6"></textarea>
+                </label>
+                <label class="field span-2">
+                  <span>その他の条件 <small>1行につき1項目</small></span>
+                  <textarea id="other-conditions" rows="6"></textarea>
+                </label>
+                <label class="field span-2">
+                  <span>確認メモ <small>監査履歴に保存されます</small></span>
+                  <textarea id="review-note" rows="3" placeholder="例：2024年度版PDFの3ページと照合済み"></textarea>
+                </label>
+              </div>
+            </section>
+          </form>
+
+          <aside class="evidence-column">
+            <section class="section-card sticky-card">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">OFFICIAL SOURCE</p>
+                  <h3>公式資料の抽出本文</h3>
+                </div>
+              </div>
+              <dl class="source-meta">
+                <div><dt>確認日</dt><dd id="checked-at">—</dd></div>
+                <div><dt>形式</dt><dd id="content-type">—</dd></div>
+                <div><dt>抽出方式</dt><dd id="extraction-method">—</dd></div>
+              </dl>
+              <p class="evidence-help">数値と適用対象を公式資料で照合してください。本文は検索用に整形されています。</p>
+              <input id="evidence-search" class="evidence-search" type="search" placeholder="本文内を検索">
+              <pre id="source-excerpt" class="source-excerpt"></pre>
+            </section>
+          </aside>
+        </div>
+
+        <div class="review-actions">
+          <p>承認すると、条件が公開APIを通じてアプリへ反映されます。</p>
+          <div>
+            <button id="reject-button" class="button danger" type="button">却下する</button>
+            <button id="publish-button" class="button primary" type="button">確認して公開</button>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="confirm-dialog" class="confirm-dialog">
+    <form method="dialog">
+      <div id="dialog-icon" class="dialog-icon"></div>
+      <h2 id="dialog-title"></h2>
+      <p id="dialog-message"></p>
+      <div class="dialog-actions">
+        <button class="button ghost" value="cancel">キャンセル</button>
+        <button id="dialog-confirm" class="button primary" value="confirm"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="requirement-template">
+    <article class="requirement-row">
+      <div class="requirement-topline">
+        <span class="requirement-number"></span>
+        <button class="remove-requirement" type="button" aria-label="条件を削除">削除</button>
+      </div>
+      <label class="field requirement-label-field">
+        <span>条件名</span>
+        <input class="requirement-label" required maxlength="200">
+      </label>
+      <div class="requirement-values">
+        <label class="field">
+          <span>最低</span>
+          <input class="requirement-minimum" type="number" min="0" max="100000" step="0.5">
+        </label>
+        <label class="field">
+          <span>固定値</span>
+          <input class="requirement-value" type="number" min="0" max="100000" step="0.5">
+        </label>
+        <label class="field">
+          <span>上限</span>
+          <input class="requirement-maximum" type="number" min="0" max="100000" step="0.5">
+        </label>
+        <label class="field">
+          <span>単位</span>
+          <select class="requirement-unit">
+            <option>単位</option><option>症例</option><option>回</option><option>件</option>
+          </select>
+        </label>
+      </div>
+      <label class="check-field"><input class="requirement-mandatory" type="checkbox"> 必須条件</label>
+      <details class="requirement-evidence-wrap">
+        <summary>抽出根拠を見る</summary>
+        <p class="requirement-evidence"></p>
+      </details>
+    </article>
+  </template>
+
+  <script src="/admin.js" defer></script>
+</body>
+</html>

@@ -35,6 +35,18 @@ flutter run -d chrome
 
 新しく抽出した条件は必ず `pending_review` になります。確認前のデータをアプリへ配信することはありません。
 
+### 管理画面
+
+本番URLの `/admin` を開き、`SYNC_ADMIN_TOKEN` を入力します。確認待ちの候補について、公式資料の抽出本文と構造化結果を並べて確認できます。
+
+- 制度区分・取得年度範囲・更新周期・総単位を修正
+- 区分別単位・必須条件を追加、修正、削除
+- 必須事項・その他条件・確認メモを記録
+- 承認した条件だけを公開APIへ反映
+- 誤った候補は原本を残したまま却下
+
+管理用トークンはブラウザのタブ内にだけ一時保存され、タブを閉じると削除されます。
+
 ### 初回セットアップ
 
 VercelプロジェクトへNeonとPrivate Blobを接続し、環境変数の接頭辞をそれぞれ `DATABASE` と `BLOB` にします。その後、VercelのProject Settings → Environment Variablesで次の2つを追加します。
@@ -60,7 +72,7 @@ npm run sync:sources
 - `GET /api/v1/qualifications?q=外科`: 資格候補の前方・部分検索
 - `GET /api/v1/qualifications?id=...&systemType=...&acquiredYear=2024`: 公開済み更新条件と出典
 - `GET /api/admin/rules`: 確認待ち条件（`Authorization: Bearer SYNC_ADMIN_TOKEN` が必要）
-- `POST /api/admin/rules`: `{ "ruleId": 1, "action": "publish" }` または `reject`
+- `POST /api/admin/rules`: 修正後の条件を添えて `publish`、または `reject`
 - `GET /api/cron/sync`: 公式資料を取得（`Authorization: Bearer CRON_SECRET` が必要）
 
 ### GitHub Actions（任意の予備経路）
