@@ -9,6 +9,7 @@ import {
   structureRenewalRule,
   type ExtractedDocument,
 } from './extract.js';
+import { applyOfficialSourceProfile } from './official-profiles.js';
 
 interface SourceDocumentRow {
   id: string;
@@ -23,6 +24,7 @@ interface SourceDocumentRow {
   renewal_year_to: number | null;
   media_type: 'auto' | 'html' | 'pdf';
   is_index: boolean;
+  proposes_rule: boolean;
   discovery_keywords: string[];
 }
 
@@ -118,8 +120,8 @@ const discoverDocuments = async (
          qualification_id, organization_id, title, source_url, system_type,
          acquired_year_from, acquired_year_to, renewal_year_from, renewal_year_to,
          media_type, is_index,
-         discovery_keywords, fetch_interval_hours
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'auto', false, '{}', 168)
+         proposes_rule, discovery_keywords, fetch_interval_hours
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'auto', false, true, '{}', 168)
        ON CONFLICT (source_url) DO UPDATE SET
          title = EXCLUDED.title,
          qualification_id = COALESCE(source_documents.qualification_id, EXCLUDED.qualification_id),
@@ -210,16 +212,21 @@ const syncOne = async (
 
   await discoverDocuments(source, extracted);
 
-  if (!source.qualification_id) return { changed: true, ruleProposed: false };
+  if (!source.qualification_id || !source.proposes_rule) {
+    return { changed: true, ruleProposed: false };
+  }
 
-  const structured = structureRenewalRule(extracted);
+  const structured = applyOfficialSourceProfile(
+    source.source_url,
+    structureRenewalRule(extracted),
+  );
   await db().query(
     `INSERT INTO renewal_rule_versions (
        qualification_id, source_snapshot_id, system_type, acquired_year_from,
        acquired_year_to, renewal_year_from, renewal_year_to,
        renewal_cycle_years, required_total_credits,
        structured_data, extraction_method, confidence, status
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, 'deterministic-v2', $11, 'pending_review')
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, 'pending_review')
      ON CONFLICT (qualification_id, source_snapshot_id, system_type) DO NOTHING`,
     [
       source.qualification_id,
@@ -232,6 +239,7 @@ const syncOne = async (
       structured.rule.renewalCycleYears || null,
       structured.rule.requiredTotalCredits || null,
       JSON.stringify(structured.rule),
+      structured.extractionMethod,
       structured.confidence,
     ],
   );
@@ -265,7 +273,7 @@ export const runSourceSync = async (options: SyncOptions): Promise<SyncSummary> 
   const sources = (await db().query(
     `SELECT id, qualification_id, organization_id, title, source_url, system_type,
             acquired_year_from, acquired_year_to, renewal_year_from, renewal_year_to,
-            media_type, is_index, discovery_keywords
+            media_type, is_index, proposes_rule, discovery_keywords
        FROM source_documents
       WHERE ${where}
       ORDER BY last_checked_at ASC NULLS FIRST, id ASC

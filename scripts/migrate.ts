@@ -10,6 +10,7 @@ const migrationFiles = [
   '001_initial.sql',
   '002_rule_review_audit.sql',
   '003_renewal_year_scope.sql',
+  '004_source_rule_role.sql',
 ];
 
 for (const filename of migrationFiles) {

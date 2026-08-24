@@ -21,6 +21,7 @@ interface SourceSeed {
   url: string;
   systemType: string;
   isIndex: boolean;
+  proposesRule?: boolean;
   keywords: string[];
   renewalYearFrom?: number;
   renewalYearTo?: number;
@@ -274,7 +275,38 @@ const sources: SourceSeed[] = [
     url: 'https://www.jarm.or.jp/jarm/rules.html',
     systemType: '学会認定',
     isIndex: true,
+    proposesRule: false,
     keywords: ['認定臨床医', '履修項目', '資格更新'],
+  },
+  {
+    qualificationName: '認定臨床医',
+    organizationName: '日本リハビリテーション医学会',
+    title: 'V-11 認定臨床医の生涯教育及び資格更新に関する内規',
+    url: 'https://www.jarm.or.jp/jarm/document/rules/05/5-11.pdf',
+    systemType: '学会認定',
+    isIndex: false,
+    proposesRule: true,
+    keywords: [],
+  },
+  {
+    qualificationName: '認定臨床医',
+    organizationName: '日本リハビリテーション医学会',
+    title: 'V-12 認定臨床医の資格更新に関する申し合わせ',
+    url: 'https://www.jarm.or.jp/jarm/document/rules/05/5-12.pdf',
+    systemType: '学会認定',
+    isIndex: false,
+    proposesRule: false,
+    keywords: [],
+  },
+  {
+    qualificationName: '認定臨床医',
+    organizationName: '日本リハビリテーション医学会',
+    title: 'V-13 別表 認定臨床医生涯教育の履修項目及び単位',
+    url: 'https://www.jarm.or.jp/jarm/document/rules/05/5-13.pdf',
+    systemType: '学会認定',
+    isIndex: false,
+    proposesRule: false,
+    keywords: [],
   },
 ];
 
@@ -283,8 +315,8 @@ for (const source of sources) {
     `INSERT INTO source_documents (
        qualification_id, organization_id, title, source_url, system_type,
        renewal_year_from, renewal_year_to,
-       media_type, is_index, discovery_keywords, fetch_interval_hours
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'auto', $8, $9, 168)
+       media_type, is_index, proposes_rule, discovery_keywords, fetch_interval_hours
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'auto', $8, $9, $10, 168)
      ON CONFLICT (source_url) DO UPDATE SET
        qualification_id = EXCLUDED.qualification_id,
        organization_id = EXCLUDED.organization_id,
@@ -293,6 +325,7 @@ for (const source of sources) {
        renewal_year_from = EXCLUDED.renewal_year_from,
        renewal_year_to = EXCLUDED.renewal_year_to,
        is_index = EXCLUDED.is_index,
+       proposes_rule = EXCLUDED.proposes_rule,
        discovery_keywords = EXCLUDED.discovery_keywords,
        active = true,
        updated_at = now()`,
@@ -305,6 +338,7 @@ for (const source of sources) {
       source.renewalYearFrom ?? null,
       source.renewalYearTo ?? null,
       source.isIndex,
+      source.proposesRule ?? !source.isIndex,
       source.keywords,
     ],
   );
@@ -320,6 +354,23 @@ await db().query(
     WHERE qualification_id = $1
       AND source_url <> ALL($2::text[])`,
   [stableId('qual', '外科専門医'), directSurgeryRuleUrls],
+);
+
+const recognizedClinicalPhysicianRuleUrl =
+  'https://www.jarm.or.jp/jarm/document/rules/05/5-11.pdf';
+await db().query(
+  `UPDATE renewal_rule_versions rv
+      SET status = 'rejected',
+          reviewed_at = now(),
+          review_note = '規則一覧ページのみの抽出候補を除外しました。更新条件は公式PDF V-11を主資料として再取得します。',
+          reviewed_by = 'system-source-cleanup'
+     FROM source_snapshots ss
+     JOIN source_documents sd ON sd.id = ss.source_document_id
+    WHERE rv.source_snapshot_id = ss.id
+      AND rv.qualification_id = $1
+      AND rv.status = 'pending_review'
+      AND sd.source_url <> $2`,
+  [stableId('qual', '認定臨床医'), recognizedClinicalPhysicianRuleUrl],
 );
 
 await db().query(
