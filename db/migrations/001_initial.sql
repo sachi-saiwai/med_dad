@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS source_documents (
   system_type text NOT NULL DEFAULT 'unspecified',
   acquired_year_from integer,
   acquired_year_to integer,
+  renewal_year_from integer,
+  renewal_year_to integer,
   media_type text NOT NULL DEFAULT 'auto'
     CHECK (media_type IN ('auto', 'html', 'pdf')),
   is_index boolean NOT NULL DEFAULT false,
@@ -65,6 +67,10 @@ CREATE TABLE IF NOT EXISTS source_documents (
   CHECK (
     acquired_year_from IS NULL OR acquired_year_to IS NULL
     OR acquired_year_from <= acquired_year_to
+  ),
+  CHECK (
+    renewal_year_from IS NULL OR renewal_year_to IS NULL
+    OR renewal_year_from <= renewal_year_to
   )
 );
 
@@ -103,6 +109,8 @@ CREATE TABLE IF NOT EXISTS renewal_rule_versions (
   system_type text NOT NULL,
   acquired_year_from integer,
   acquired_year_to integer,
+  renewal_year_from integer,
+  renewal_year_to integer,
   valid_from date,
   valid_to date,
   renewal_cycle_years numeric,
@@ -122,7 +130,10 @@ CREATE TABLE IF NOT EXISTS renewal_rule_versions (
 -- statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS renewal_rule_lookup_idx
-  ON renewal_rule_versions (qualification_id, status, system_type, acquired_year_from, acquired_year_to);
+  ON renewal_rule_versions (
+    qualification_id, status, system_type,
+    acquired_year_from, acquired_year_to
+  );
 
 -- statement-breakpoint
 

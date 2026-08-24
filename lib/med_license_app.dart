@@ -166,6 +166,8 @@ class Qualification {
     this.hasVerifiedRequirements = true,
     this.systemType,
     this.renewalCycleYears,
+    this.renewalYearFrom,
+    this.renewalYearTo,
     this.sourceTitle,
     this.sourceUrl,
     this.sourceCheckedAt,
@@ -185,6 +187,8 @@ class Qualification {
   final bool hasVerifiedRequirements;
   final String? systemType;
   final double? renewalCycleYears;
+  final int? renewalYearFrom;
+  final int? renewalYearTo;
   final String? sourceTitle;
   final String? sourceUrl;
   final DateTime? sourceCheckedAt;
@@ -845,6 +849,8 @@ Qualification qualificationWithOfficialRule(
     hasVerifiedRequirements: true,
     systemType: rule.systemType,
     renewalCycleYears: rule.renewalCycleYears,
+    renewalYearFrom: rule.renewalYearFrom,
+    renewalYearTo: rule.renewalYearTo,
     sourceTitle: rule.source.title,
     sourceUrl: rule.source.url,
     sourceCheckedAt: rule.source.checkedAt,
@@ -3005,10 +3011,15 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
       });
     }
     try {
-      final loader =
-          widget.officialRuleLoader ??
-          const OfficialRuleService().fetchForQualification;
-      final lookup = await loader(widget.qualification.name);
+      final customLoader = widget.officialRuleLoader;
+      final lookup = customLoader != null
+          ? await customLoader(widget.qualification.name)
+          : await const OfficialRuleService().fetchForQualification(
+              widget.qualification.name,
+              renewalYear: _parseFlexibleDate(
+                widget.qualification.deadline,
+              )?.year,
+            );
       if (!mounted) return;
       setState(() {
         final rule = lookup.rule;
@@ -3421,6 +3432,15 @@ class _OfficialRuleSummary extends StatelessWidget {
                   _RuleFactChip(label: qualification.systemType!),
                 if (cycle != null)
                   _RuleFactChip(label: '更新周期 ${_formatNumber(cycle)}年'),
+                if (qualification.renewalYearFrom != null &&
+                    qualification.renewalYearTo != null)
+                  _RuleFactChip(
+                    label:
+                        qualification.renewalYearFrom ==
+                            qualification.renewalYearTo
+                        ? '更新期限 ${qualification.renewalYearFrom}年'
+                        : '更新期限 ${qualification.renewalYearFrom}〜${qualification.renewalYearTo}年',
+                  ),
                 if (total > 0)
                   _RuleFactChip(label: '必要総単位 ${_formatNumber(total)}単位'),
               ],

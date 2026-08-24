@@ -60,6 +60,20 @@ test('calendar years are not mistaken for a renewal cycle', () => {
   assert.ok(result.rule.warnings.some((warning) => warning.includes('対象者')));
 });
 
+test('total credits prefer the explicit required total over category credits', () => {
+  const result = structureRenewalRule({
+    title: '2026年12月31日満了者向け更新案内',
+    links: [],
+    text: `
+      研修実績は診療実績の証明10単位を除き合計40単位以上が必要です。
+      専門医共通講習8単位、外科領域講習10単位を取得してください。
+      必要単位50単位のうち、旧制度の更新要件で20単位まで算定できます。
+    `,
+  });
+
+  assert.equal(result.rule.requiredTotalCredits, 50);
+});
+
 test('linksForDiscovery only follows matching links on the official host', () => {
   const links = linksForDiscovery(
     [

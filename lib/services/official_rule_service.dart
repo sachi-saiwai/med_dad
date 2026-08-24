@@ -59,6 +59,8 @@ class OfficialRenewalRule {
     required this.source,
     this.acquiredYearFrom,
     this.acquiredYearTo,
+    this.renewalYearFrom,
+    this.renewalYearTo,
     this.renewalCycleYears,
     this.requiredTotalCredits,
   });
@@ -67,6 +69,8 @@ class OfficialRenewalRule {
   final String systemType;
   final int? acquiredYearFrom;
   final int? acquiredYearTo;
+  final int? renewalYearFrom;
+  final int? renewalYearTo;
   final double? renewalCycleYears;
   final double? requiredTotalCredits;
   final List<OfficialRequirement> requirements;
@@ -90,7 +94,7 @@ class OfficialRuleService {
 
   static const productionOrigin = 'https://med-dad.vercel.app';
 
-  Uri _endpoint(String qualificationName) {
+  Uri _endpoint(String qualificationName, {int? renewalYear}) {
     final sameOrigin =
         kIsWeb &&
         (Uri.base.scheme == 'http' || Uri.base.scheme == 'https') &&
@@ -100,15 +104,22 @@ class OfficialRuleService {
     final base = sameOrigin ? Uri.base : Uri.parse(productionOrigin);
     return base
         .resolve('/api/v1/qualifications')
-        .replace(queryParameters: {'q': qualificationName, 'limit': '20'});
+        .replace(
+          queryParameters: {
+            'q': qualificationName,
+            'limit': '20',
+            if (renewalYear != null) 'renewalYear': '$renewalYear',
+          },
+        );
   }
 
   Future<OfficialRuleLookup> fetchForQualification(
-    String qualificationName,
-  ) async {
+    String qualificationName, {
+    int? renewalYear,
+  }) async {
     final response = await http
         .get(
-          _endpoint(qualificationName),
+          _endpoint(qualificationName, renewalYear: renewalYear),
           headers: const {'Accept': 'application/json'},
         )
         .timeout(const Duration(seconds: 15));
@@ -152,6 +163,8 @@ class OfficialRuleService {
       systemType: (json['systemType'] as String?)?.trim() ?? '制度区分未指定',
       acquiredYearFrom: (json['acquiredYearFrom'] as num?)?.toInt(),
       acquiredYearTo: (json['acquiredYearTo'] as num?)?.toInt(),
+      renewalYearFrom: (json['renewalYearFrom'] as num?)?.toInt(),
+      renewalYearTo: (json['renewalYearTo'] as num?)?.toInt(),
       renewalCycleYears: (json['renewalCycleYears'] as num?)?.toDouble(),
       requiredTotalCredits: (json['requiredTotalCredits'] as num?)?.toDouble(),
       requirements: (details['requirements'] as List<Object?>? ?? const [])

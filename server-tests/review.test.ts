@@ -8,6 +8,8 @@ test('validateRuleCorrections accepts reviewed fields', () => {
     systemType: '日本専門医機構認定',
     acquiredYearFrom: 2024,
     acquiredYearTo: 2026,
+    renewalYearFrom: 2026,
+    renewalYearTo: 2026,
     renewalCycleYears: 5,
     requiredTotalCredits: 50,
     requirements: [
@@ -24,7 +26,23 @@ test('validateRuleCorrections accepts reviewed fields', () => {
   });
 
   assert.equal(rule.requiredTotalCredits, 50);
+  assert.equal(rule.renewalYearFrom, 2026);
   assert.equal(rule.requirements[0]?.minimum, 8);
+});
+
+test('validateRuleCorrections rejects inverted renewal years', () => {
+  assert.throws(
+    () =>
+      validateRuleCorrections({
+        systemType: '日本専門医機構認定',
+        renewalYearFrom: 2028,
+        renewalYearTo: 2026,
+        requirements: [],
+        mandatoryNotes: [],
+        otherConditions: [],
+      }),
+    /renewalYearFrom must not be after renewalYearTo/,
+  );
 });
 
 test('validateRuleCorrections rejects inverted acquisition years', () => {

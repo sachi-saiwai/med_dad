@@ -119,6 +119,19 @@ const firstNumber = (value: string, expression: RegExp): number | undefined => {
 };
 
 const totalCreditCandidate = (blocks: string[]): number | undefined => {
+  const explicitPatterns = [
+    /必要単位\s*(\d{1,3}(?:\.\d+)?)\s*単位/u,
+    /更新単位\s*(\d{1,3}(?:\.\d+)?)\s*単位/u,
+    /総単位(?:数)?[^\d]{0,12}(\d{1,3}(?:\.\d+)?)\s*単位/u,
+    /合計[^\d]{0,12}(\d{1,3}(?:\.\d+)?)\s*単位[^。．]{0,30}必要/u,
+  ];
+  for (const pattern of explicitPatterns) {
+    for (const block of blocks) {
+      const value = firstNumber(block, pattern);
+      if (value !== undefined) return value;
+    }
+  }
+
   const scored = blocks
     .filter((block) => block.includes('単位'))
     .map((block) => {

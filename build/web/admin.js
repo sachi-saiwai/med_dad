@@ -13,7 +13,8 @@
     confidenceBadge: $('confidence-badge'), ruleId: $('rule-id'), qualificationName: $('qualification-name'),
     sourceTitle: $('source-title'), sourceLink: $('source-link'), warnings: $('warnings'),
     warningList: $('warning-list'), systemType: $('system-type'), yearFrom: $('year-from'),
-    yearTo: $('year-to'), cycleYears: $('cycle-years'), totalCredits: $('total-credits'),
+    yearTo: $('year-to'), renewalYearFrom: $('renewal-year-from'), renewalYearTo: $('renewal-year-to'),
+    cycleYears: $('cycle-years'), totalCredits: $('total-credits'),
     requirementsList: $('requirements-list'), requirementsEmpty: $('requirements-empty'),
     requirementTemplate: $('requirement-template'), addRequirement: $('add-requirement'),
     mandatoryNotes: $('mandatory-notes'), otherConditions: $('other-conditions'), reviewNote: $('review-note'),
@@ -171,6 +172,8 @@
     warnings.forEach((warning) => { const item = document.createElement('li'); item.textContent = warning; elements.warningList.append(item); });
     elements.systemType.value = rule.system_type || '';
     elements.yearFrom.value = rule.acquired_year_from ?? ''; elements.yearTo.value = rule.acquired_year_to ?? '';
+    elements.renewalYearFrom.value = rule.renewal_year_from ?? '';
+    elements.renewalYearTo.value = rule.renewal_year_to ?? '';
     elements.cycleYears.value = rule.renewal_cycle_years ?? data.renewalCycleYears ?? '';
     elements.totalCredits.value = rule.required_total_credits ?? data.requiredTotalCredits ?? '';
     elements.mandatoryNotes.value = (data.mandatoryNotes || []).join('\n');
@@ -238,8 +241,14 @@
     if (acquiredYearFrom !== null && acquiredYearTo !== null && acquiredYearFrom > acquiredYearTo) {
       throw new Error('取得年度の開始が終了より後になっています。');
     }
+    const renewalYearFrom = numberOrNull(elements.renewalYearFrom.value);
+    const renewalYearTo = numberOrNull(elements.renewalYearTo.value);
+    if (renewalYearFrom !== null && renewalYearTo !== null && renewalYearFrom > renewalYearTo) {
+      throw new Error('更新期限年の開始が終了より後になっています。');
+    }
     return {
       systemType: elements.systemType.value.trim(), acquiredYearFrom, acquiredYearTo,
+      renewalYearFrom, renewalYearTo,
       renewalCycleYears: numberOrNull(elements.cycleYears.value),
       requiredTotalCredits: numberOrNull(elements.totalCredits.value), requirements: collectRequirements(),
       mandatoryNotes: textLines(elements.mandatoryNotes.value), otherConditions: textLines(elements.otherConditions.value),
@@ -251,7 +260,7 @@
     elements.dialogIcon.textContent = publish ? '✓' : '×';
     elements.dialogTitle.textContent = publish ? 'この条件を公開しますか？' : 'この候補を却下しますか？';
     elements.dialogMessage.textContent = publish
-        ? '承認後は公開APIから取得できるようになります。利用者アプリとの条件同期は別途必要です。'
+        ? '承認後は公開APIへ反映され、対象となる利用者アプリに自動表示されます。'
       : '却下した候補は確認待ち一覧から外れます。公式資料そのものは保存されます。';
     elements.dialogConfirm.textContent = publish ? '公開する' : '却下する';
     elements.dialogConfirm.className = publish ? 'button primary' : 'button danger';

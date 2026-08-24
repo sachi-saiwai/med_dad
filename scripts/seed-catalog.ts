@@ -14,6 +14,18 @@ interface CatalogEntry {
   parentQualification?: string;
 }
 
+interface SourceSeed {
+  qualificationName: string | null;
+  organizationName: string;
+  title: string;
+  url: string;
+  systemType: string;
+  isIndex: boolean;
+  keywords: string[];
+  renewalYearFrom?: number;
+  renewalYearTo?: number;
+}
+
 const stableId = (prefix: string, value: string): string =>
   `${prefix}_${createHash('sha256').update(value).digest('hex').slice(0, 16)}`;
 
@@ -145,7 +157,7 @@ for (const entry of entries) {
   );
 }
 
-const sources = [
+const sources: SourceSeed[] = [
   {
     qualificationName: null,
     organizationName: '日本専門医機構',
@@ -154,6 +166,15 @@ const sources = [
     systemType: '日本専門医機構認定',
     isIndex: true,
     keywords: ['更新', '認定', '基準', '専門医'],
+  },
+  {
+    qualificationName: null,
+    organizationName: '日本専門医機構／日本外科学会',
+    title: '外科専門医 新専門医の更新要件（更新期限別一覧）',
+    url: 'https://www.jssoc.or.jp/modules/specialist/index.php?content_id=113',
+    systemType: '日本専門医機構認定',
+    isIndex: true,
+    keywords: ['新専門医', '更新要件', '有効期限'],
   },
   {
     qualificationName: '外科専門医',
@@ -167,11 +188,57 @@ const sources = [
   {
     qualificationName: '外科専門医',
     organizationName: '日本専門医機構／日本外科学会',
-    title: '外科専門医 新専門医更新要件（期限別案内）',
+    title: '外科専門医 新専門医更新要件（2026年12月31日満了）',
     url: 'https://www.jssoc.or.jp/modules/specialist/index.php?content_id=114',
     systemType: '日本専門医機構認定',
-    isIndex: true,
-    keywords: ['更新', '要件', '基準'],
+    isIndex: false,
+    keywords: [],
+    renewalYearFrom: 2026,
+    renewalYearTo: 2026,
+  },
+  {
+    qualificationName: '外科専門医',
+    organizationName: '日本専門医機構／日本外科学会',
+    title: '外科専門医 新専門医更新要件（2027年12月31日満了）',
+    url: 'https://www.jssoc.or.jp/modules/specialist/index.php?content_id=115',
+    systemType: '日本専門医機構認定',
+    isIndex: false,
+    keywords: [],
+    renewalYearFrom: 2027,
+    renewalYearTo: 2027,
+  },
+  {
+    qualificationName: '外科専門医',
+    organizationName: '日本専門医機構／日本外科学会',
+    title: '外科専門医 新専門医更新要件（2028年12月31日満了）',
+    url: 'https://www.jssoc.or.jp/modules/specialist/index.php?content_id=116',
+    systemType: '日本専門医機構認定',
+    isIndex: false,
+    keywords: [],
+    renewalYearFrom: 2028,
+    renewalYearTo: 2028,
+  },
+  {
+    qualificationName: '外科専門医',
+    organizationName: '日本専門医機構／日本外科学会',
+    title: '外科専門医 新専門医更新要件（2029年12月31日満了）',
+    url: 'https://www.jssoc.or.jp/modules/specialist/index.php?content_id=121',
+    systemType: '日本専門医機構認定',
+    isIndex: false,
+    keywords: [],
+    renewalYearFrom: 2029,
+    renewalYearTo: 2029,
+  },
+  {
+    qualificationName: '外科専門医',
+    organizationName: '日本専門医機構／日本外科学会',
+    title: '外科専門医 新専門医更新要件（2030年12月31日満了）',
+    url: 'https://www.jssoc.or.jp/modules/specialist/index.php?content_id=134',
+    systemType: '日本専門医機構認定',
+    isIndex: false,
+    keywords: [],
+    renewalYearFrom: 2030,
+    renewalYearTo: 2030,
   },
   {
     qualificationName: '内科専門医',
@@ -209,19 +276,22 @@ const sources = [
     isIndex: true,
     keywords: ['認定臨床医', '履修項目', '資格更新'],
   },
-] as const;
+];
 
 for (const source of sources) {
   await db().query(
     `INSERT INTO source_documents (
        qualification_id, organization_id, title, source_url, system_type,
+       renewal_year_from, renewal_year_to,
        media_type, is_index, discovery_keywords, fetch_interval_hours
-     ) VALUES ($1, $2, $3, $4, $5, 'auto', $6, $7, 168)
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'auto', $8, $9, 168)
      ON CONFLICT (source_url) DO UPDATE SET
        qualification_id = EXCLUDED.qualification_id,
        organization_id = EXCLUDED.organization_id,
        title = EXCLUDED.title,
        system_type = EXCLUDED.system_type,
+       renewal_year_from = EXCLUDED.renewal_year_from,
+       renewal_year_to = EXCLUDED.renewal_year_to,
        is_index = EXCLUDED.is_index,
        discovery_keywords = EXCLUDED.discovery_keywords,
        active = true,
@@ -232,10 +302,25 @@ for (const source of sources) {
       source.title,
       source.url,
       source.systemType,
+      source.renewalYearFrom ?? null,
+      source.renewalYearTo ?? null,
       source.isIndex,
       source.keywords,
     ],
   );
 }
+
+await db().query(
+  `UPDATE renewal_rule_versions rv
+      SET renewal_year_from = sd.renewal_year_from,
+          renewal_year_to = sd.renewal_year_to
+     FROM source_snapshots ss
+     JOIN source_documents sd ON sd.id = ss.source_document_id
+    WHERE rv.source_snapshot_id = ss.id
+      AND (
+        rv.renewal_year_from IS DISTINCT FROM sd.renewal_year_from
+        OR rv.renewal_year_to IS DISTINCT FROM sd.renewal_year_to
+      )`,
+);
 
 console.log(`Seeded ${entries.length} qualifications and ${sources.length} official sources`);

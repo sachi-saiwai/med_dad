@@ -12,6 +12,8 @@ export interface RuleCorrections {
   systemType: string;
   acquiredYearFrom?: number;
   acquiredYearTo?: number;
+  renewalYearFrom?: number;
+  renewalYearTo?: number;
   renewalCycleYears?: number;
   requiredTotalCredits?: number;
   requirements: RequirementInput[];
@@ -60,6 +62,15 @@ export const validateRuleCorrections = (value: unknown): RuleCorrections => {
   ) {
     throw new Error('acquiredYearFrom must not be after acquiredYearTo');
   }
+  const renewalYearFrom = optionalNumber(input.renewalYearFrom, 'renewalYearFrom', 1900, 2200);
+  const renewalYearTo = optionalNumber(input.renewalYearTo, 'renewalYearTo', 1900, 2200);
+  if (
+    renewalYearFrom !== undefined &&
+    renewalYearTo !== undefined &&
+    renewalYearFrom > renewalYearTo
+  ) {
+    throw new Error('renewalYearFrom must not be after renewalYearTo');
+  }
 
   if (!Array.isArray(input.requirements) || input.requirements.length > 40) {
     throw new Error('requirements is invalid');
@@ -105,6 +116,8 @@ export const validateRuleCorrections = (value: unknown): RuleCorrections => {
     systemType: shortText(input.systemType, 'systemType', 100),
     acquiredYearFrom,
     acquiredYearTo,
+    renewalYearFrom,
+    renewalYearTo,
     renewalCycleYears: optionalNumber(input.renewalCycleYears, 'renewalCycleYears', 1, 20),
     requiredTotalCredits: optionalNumber(
       input.requiredTotalCredits,

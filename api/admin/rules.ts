@@ -28,6 +28,7 @@ export default async function handler(
         db().query(
         `SELECT rv.id, rv.qualification_id, q.name AS qualification_name,
                 rv.system_type, rv.acquired_year_from, rv.acquired_year_to,
+                rv.renewal_year_from, rv.renewal_year_to,
                 rv.renewal_cycle_years, rv.required_total_credits,
                 rv.structured_data, rv.confidence, rv.extraction_method, rv.created_at,
                 sd.title AS source_title, sd.source_url, ss.checked_at,
@@ -117,20 +118,25 @@ export default async function handler(
             AND system_type = $2
             AND acquired_year_from IS NOT DISTINCT FROM $3
             AND acquired_year_to IS NOT DISTINCT FROM $4
+            AND renewal_year_from IS NOT DISTINCT FROM $5
+            AND renewal_year_to IS NOT DISTINCT FROM $6
             AND status = 'published'`,
         [
           target.qualification_id,
           corrections.systemType,
           corrections.acquiredYearFrom ?? null,
           corrections.acquiredYearTo ?? null,
+          corrections.renewalYearFrom ?? null,
+          corrections.renewalYearTo ?? null,
         ],
       ),
       transaction.query(
         `UPDATE renewal_rule_versions
             SET system_type = $2, acquired_year_from = $3, acquired_year_to = $4,
-                renewal_cycle_years = $5, required_total_credits = $6,
-                structured_data = $7::jsonb, status = 'published',
-                reviewed_at = now(), published_at = now(), review_note = $8,
+                renewal_year_from = $5, renewal_year_to = $6,
+                renewal_cycle_years = $7, required_total_credits = $8,
+                structured_data = $9::jsonb, status = 'published',
+                reviewed_at = now(), published_at = now(), review_note = $10,
                 reviewed_by = 'admin'
           WHERE id = $1 AND status = 'pending_review'
           RETURNING id, status, published_at`,
@@ -139,6 +145,8 @@ export default async function handler(
           corrections.systemType,
           corrections.acquiredYearFrom ?? null,
           corrections.acquiredYearTo ?? null,
+          corrections.renewalYearFrom ?? null,
+          corrections.renewalYearTo ?? null,
           corrections.renewalCycleYears ?? null,
           corrections.requiredTotalCredits ?? null,
           JSON.stringify(structuredData),

@@ -19,6 +19,8 @@ interface SourceDocumentRow {
   system_type: string;
   acquired_year_from: number | null;
   acquired_year_to: number | null;
+  renewal_year_from: number | null;
+  renewal_year_to: number | null;
   media_type: 'auto' | 'html' | 'pdf';
   is_index: boolean;
   discovery_keywords: string[];
@@ -113,9 +115,10 @@ const discoverDocuments = async (
     await db().query(
       `INSERT INTO source_documents (
          qualification_id, organization_id, title, source_url, system_type,
-         acquired_year_from, acquired_year_to, media_type, is_index,
+         acquired_year_from, acquired_year_to, renewal_year_from, renewal_year_to,
+         media_type, is_index,
          discovery_keywords, fetch_interval_hours
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'auto', false, '{}', 168)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'auto', false, '{}', 168)
        ON CONFLICT (source_url) DO UPDATE SET
          title = EXCLUDED.title,
          qualification_id = COALESCE(source_documents.qualification_id, EXCLUDED.qualification_id),
@@ -129,6 +132,8 @@ const discoverDocuments = async (
         source.system_type,
         source.acquired_year_from,
         source.acquired_year_to,
+        source.renewal_year_from,
+        source.renewal_year_to,
       ],
     );
   }
@@ -210,9 +215,10 @@ const syncOne = async (
   await db().query(
     `INSERT INTO renewal_rule_versions (
        qualification_id, source_snapshot_id, system_type, acquired_year_from,
-       acquired_year_to, renewal_cycle_years, required_total_credits,
+       acquired_year_to, renewal_year_from, renewal_year_to,
+       renewal_cycle_years, required_total_credits,
        structured_data, extraction_method, confidence, status
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, 'deterministic-v1', $9, 'pending_review')
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, 'deterministic-v2', $11, 'pending_review')
      ON CONFLICT (qualification_id, source_snapshot_id, system_type) DO NOTHING`,
     [
       source.qualification_id,
@@ -220,6 +226,8 @@ const syncOne = async (
       source.system_type,
       source.acquired_year_from,
       source.acquired_year_to,
+      source.renewal_year_from,
+      source.renewal_year_to,
       structured.rule.renewalCycleYears || null,
       structured.rule.requiredTotalCredits || null,
       JSON.stringify(structured.rule),
@@ -251,7 +259,8 @@ export const runSourceSync = async (options: SyncOptions): Promise<SyncSummary> 
   params.push(limit);
   const sources = (await db().query(
     `SELECT id, qualification_id, organization_id, title, source_url, system_type,
-            acquired_year_from, acquired_year_to, media_type, is_index, discovery_keywords
+            acquired_year_from, acquired_year_to, renewal_year_from, renewal_year_to,
+            media_type, is_index, discovery_keywords
        FROM source_documents
       WHERE ${where}
       ORDER BY last_checked_at ASC NULLS FIRST, id ASC

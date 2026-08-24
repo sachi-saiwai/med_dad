@@ -21,6 +21,8 @@ interface QualificationRow {
   system_type: string | null;
   acquired_year_from: number | null;
   acquired_year_to: number | null;
+  renewal_year_from: number | null;
+  renewal_year_to: number | null;
   renewal_cycle_years: string | null;
   required_total_credits: string | null;
   structured_data: Record<string, unknown> | null;
@@ -50,6 +52,8 @@ const serialize = (row: QualificationRow) => ({
         systemType: row.system_type,
         acquiredYearFrom: row.acquired_year_from,
         acquiredYearTo: row.acquired_year_to,
+        renewalYearFrom: row.renewal_year_from,
+        renewalYearTo: row.renewal_year_to,
         renewalCycleYears: row.renewal_cycle_years ? Number(row.renewal_cycle_years) : null,
         requiredTotalCredits: row.required_total_credits
           ? Number(row.required_total_credits)
@@ -80,6 +84,8 @@ export default async function handler(
     const systemType = queryString(request, 'systemType')?.trim().slice(0, 100) || null;
     const requestedYear = Number.parseInt(queryString(request, 'acquiredYear') || '', 10);
     const acquiredYear = Number.isFinite(requestedYear) ? requestedYear : null;
+    const requestedRenewalYear = Number.parseInt(queryString(request, 'renewalYear') || '', 10);
+    const renewalYear = Number.isFinite(requestedRenewalYear) ? requestedRenewalYear : null;
     const requestedLimit = Number.parseInt(queryString(request, 'limit') || '50', 10);
     const limit = Math.max(1, Math.min(Number.isFinite(requestedLimit) ? requestedLimit : 50, 100));
 
@@ -89,7 +95,8 @@ export default async function handler(
          q.category, q.parent_qualification_id, parent.name AS parent_qualification_name,
          q.keywords, q.verification_status,
          rule.id AS rule_id, rule.system_type, rule.acquired_year_from,
-         rule.acquired_year_to, rule.renewal_cycle_years, rule.required_total_credits,
+         rule.acquired_year_to, rule.renewal_year_from, rule.renewal_year_to,
+         rule.renewal_cycle_years, rule.required_total_credits,
          rule.structured_data, rule.confidence, rule.published_at,
          rule.source_title, rule.source_url, rule.checked_at
        FROM qualifications q
@@ -97,6 +104,7 @@ export default async function handler(
        LEFT JOIN qualifications parent ON parent.id = q.parent_qualification_id
        LEFT JOIN LATERAL (
          SELECT rv.id, rv.system_type, rv.acquired_year_from, rv.acquired_year_to,
+                rv.renewal_year_from, rv.renewal_year_to,
                 rv.renewal_cycle_years, rv.required_total_credits, rv.structured_data,
                 rv.confidence, rv.published_at, sd.title AS source_title,
                 sd.source_url, ss.checked_at
@@ -113,7 +121,49 @@ export default async function handler(
                 AND (rv.acquired_year_to IS NULL OR rv.acquired_year_to >= $4)
               )
             )
+            AND (
+              (
+                $5::integer IS NULL
+                AND rv.renewal_year_from IS NULL
+                AND rv.renewal_year_to IS NULL
+              )
+              OR (
+                $5::integer IS NOT NULL
+                AND (
+                  (
+                    (rv.renewal_year_from IS NOT NULL OR rv.renewal_year_to IS NOT NULL)
+                    AND (rv.renewal_year_from IS NULL OR rv.renewal_year_from <= $5)
+                    AND (rv.renewal_year_to IS NULL OR rv.renewal_year_to >= $5)
+                  )
+                  OR (
+                    rv.renewal_year_from IS NULL
+                    AND rv.renewal_year_to IS NULL
+                    AND NOT EXISTS (
+                      SELECT 1
+                        FROM source_documents scoped_source
+                       WHERE scoped_source.qualification_id = q.id
+                         AND scoped_source.active = true
+                         AND (
+                           scoped_source.renewal_year_from IS NOT NULL
+                           OR scoped_source.renewal_year_to IS NOT NULL
+                         )
+                         AND (
+                           scoped_source.renewal_year_from IS NULL
+                           OR scoped_source.renewal_year_from <= $5
+                         )
+                         AND (
+                           scoped_source.renewal_year_to IS NULL
+                           OR scoped_source.renewal_year_to >= $5
+                         )
+                    )
+                  )
+                )
+              )
+            )
           ORDER BY
+            CASE WHEN $5::integer IS NOT NULL
+                       AND (rv.renewal_year_from IS NOT NULL OR rv.renewal_year_to IS NOT NULL)
+                 THEN 0 ELSE 1 END,
             CASE WHEN $4::integer IS NOT NULL
                        AND rv.acquired_year_from IS NOT NULL
                        AND rv.acquired_year_to IS NOT NULL THEN 0 ELSE 1 END,
@@ -133,8 +183,8 @@ export default async function handler(
          CASE WHEN $2::text IS NOT NULL AND q.name ILIKE $2 || '%' THEN 0 ELSE 1 END,
          CASE WHEN q.category = '基本領域' THEN 0 ELSE 1 END,
          q.name
-       LIMIT $5`,
-      [id, search, systemType, acquiredYear, id ? 1 : limit],
+       LIMIT $6`,
+      [id, search, systemType, acquiredYear, renewalYear, id ? 1 : limit],
     )) as unknown as QualificationRow[];
 
     if (id && rows.length === 0) {
@@ -146,6 +196,7 @@ export default async function handler(
         count: rows.length,
         query: search,
         acquiredYear,
+        renewalYear,
         systemType,
         generatedAt: new Date().toISOString(),
       },

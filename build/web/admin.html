@@ -133,6 +133,14 @@
                   <input id="year-to" type="number" min="1900" max="2200" placeholder="指定なし">
                 </label>
                 <label class="field">
+                  <span>更新期限年（開始）</span>
+                  <input id="renewal-year-from" type="number" min="1900" max="2200" placeholder="指定なし">
+                </label>
+                <label class="field">
+                  <span>更新期限年（終了）</span>
+                  <input id="renewal-year-to" type="number" min="1900" max="2200" placeholder="指定なし">
+                </label>
+                <label class="field">
                   <span>更新周期</span>
                   <div class="unit-input"><input id="cycle-years" type="number" min="1" max="20" step="0.5"><b>年</b></div>
                 </label>
@@ -194,7 +202,7 @@
         </div>
 
         <div class="review-actions">
-          <p>承認すると条件が公開APIへ反映されます。利用者アプリとの同期は次の実装対象です。</p>
+          <p>承認すると公開APIへ反映され、対象となる利用者アプリに自動表示されます。</p>
           <div>
             <button id="reject-button" class="button danger" type="button">却下する</button>
             <button id="publish-button" class="button primary" type="button">確認して公開</button>

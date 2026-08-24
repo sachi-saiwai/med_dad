@@ -12,6 +12,7 @@
     "db:seed": "node --import tsx scripts/seed-catalog.ts",
     "db:setup": "npm run db:migrate && npm run db:seed",
     "db:reprocess": "node --import tsx scripts/reprocess-rules.ts",
+    "db:prepare:surgery": "node --import tsx scripts/prepare-surgery-rules.ts",
     "sync:sources": "node --import tsx scripts/sync-sources.ts",
     "test:server": "node --import tsx --test server-tests/*.test.ts"
   },
