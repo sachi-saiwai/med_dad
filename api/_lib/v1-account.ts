@@ -1,15 +1,15 @@
 import { del } from '@vercel/blob';
 
-import { blobToken } from '../_lib/config.js';
-import { db } from '../_lib/db.js';
-import { requireFirebaseUser } from '../_lib/firebase-auth.js';
+import { blobToken } from './config.js';
+import { db } from './db.js';
+import { requireFirebaseUser } from './firebase-auth.js';
 import {
   methodNotAllowed,
   sendError,
   userCors,
-} from '../_lib/http.js';
-import { ensureAppUser } from '../_lib/user-data.js';
-import type { ApiRequest, ApiResponse } from '../_lib/vercel.js';
+} from './http.js';
+import { ensureAppUser } from './user-data.js';
+import type { ApiRequest, ApiResponse } from './vercel.js';
 
 export default async function handler(
   request: ApiRequest,

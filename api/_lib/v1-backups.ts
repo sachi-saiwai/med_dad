@@ -1,17 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { del, get, put } from '@vercel/blob';
 
-import { blobToken, HttpError } from '../_lib/config.js';
-import { db } from '../_lib/db.js';
-import { requireFirebaseUser } from '../_lib/firebase-auth.js';
+import { blobToken, HttpError } from './config.js';
+import { db } from './db.js';
+import { requireFirebaseUser } from './firebase-auth.js';
 import {
   methodNotAllowed,
   queryString,
   sendError,
   userCors,
-} from '../_lib/http.js';
-import { ensureAppUser, sha256 } from '../_lib/user-data.js';
-import type { ApiRequest, ApiResponse } from '../_lib/vercel.js';
+} from './http.js';
+import { ensureAppUser, sha256 } from './user-data.js';
+import type { ApiRequest, ApiResponse } from './vercel.js';
 
 interface BackupRow {
   id: string;
