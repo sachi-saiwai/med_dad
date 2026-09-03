@@ -113,6 +113,28 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); box-sh
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .section-heading h3 { margin: 0; font-size: 18px; }
 .editable-label { padding: 5px 8px; border-radius: 8px; background: var(--primary-soft); color: var(--primary); font-size: 11px; font-weight: 800; }
+.change-analysis-card { border-color: #cbdad5; }
+.change-significance, .change-importance { flex: 0 0 auto; padding: 5px 9px; border-radius: 99px; font-size: 11px; font-weight: 850; }
+.significance-none { background: #edf1ef; color: var(--muted); }
+.significance-low { background: #e9f1f5; color: #38677e; }
+.significance-medium { background: var(--warning-soft); color: var(--warning); }
+.significance-high { background: var(--danger-soft); color: var(--danger); }
+.change-summary { margin: -5px 0 7px; font-weight: 750; line-height: 1.65; }
+.change-counts { color: var(--muted); font-size: 12px; }
+.change-list { display: grid; gap: 10px; margin-top: 16px; }
+.change-item { padding: 13px; border: 1px solid var(--line); border-radius: 13px; background: #fbfcfa; }
+.change-item-heading { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-bottom: 9px; }
+.change-item-heading strong { font-size: 13px; }
+.change-importance { padding: 3px 7px; font-size: 10px; }
+.change-before, .change-after { margin: 5px 0; padding: 8px 10px; border-radius: 8px; font-size: 12px; line-height: 1.55; word-break: break-word; }
+.change-before { background: var(--danger-soft); color: #7d3730; }
+.change-after { background: var(--success-soft); color: var(--primary-dark); }
+.change-explanation { margin: 8px 1px 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.change-review-wrap, .change-warning-wrap { margin-top: 16px; padding: 13px 15px; border-radius: 12px; }
+.change-review-wrap { background: var(--primary-soft); }
+.change-warning-wrap { background: var(--warning-soft); }
+.change-review-wrap h4, .change-warning-wrap h4 { margin: 0 0 6px; font-size: 13px; }
+.change-review-wrap ul, .change-warning-wrap ul { margin: 0; padding-left: 19px; font-size: 12px; line-height: 1.65; }
 .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .field.span-2 { grid-column: span 2; }
 .field small { color: var(--muted); font-weight: 500; }

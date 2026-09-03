@@ -1,11 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'data/app_controller.dart';
 import 'data/app_state.dart';
 import 'services/attachment_service.dart';
+import 'services/auth_service.dart';
+import 'services/certificate_extraction.dart';
+import 'services/certificate_ocr_service.dart';
+import 'services/cloud_data_service.dart';
 import 'services/official_rule_service.dart';
 
 const _ink = Color(0xFF18324A);
@@ -14,11 +19,13 @@ const _canvas = Color(0xFFF4F6F2);
 const _line = Color(0xFFDCE3DE);
 const _warning = Color(0xFFE88C32);
 const _danger = Color(0xFFB85042);
+const _appleSignInEnabled = bool.fromEnvironment('APPLE_SIGN_IN_ENABLED');
 
 class MedLicenseApp extends StatefulWidget {
-  const MedLicenseApp({super.key, this.controller});
+  const MedLicenseApp({super.key, this.controller, this.authService});
 
   final AppController? controller;
+  final AuthService? authService;
 
   @override
   State<MedLicenseApp> createState() => _MedLicenseAppState();
@@ -26,11 +33,13 @@ class MedLicenseApp extends StatefulWidget {
 
 class _MedLicenseAppState extends State<MedLicenseApp> {
   late final AppController _controller;
+  late final AuthService _authService;
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? AppController.memory();
+    _authService = widget.authService ?? const BypassAuthService();
   }
 
   @override
@@ -123,9 +132,623 @@ class _MedLicenseAppState extends State<MedLicenseApp> {
             ),
           ),
         ),
-        home: _controller.isSetupComplete || _controller.demoMode
-            ? AppShell(controller: _controller)
-            : InitialSetupScreen(controller: _controller),
+        home: AuthGate(controller: _controller, authService: _authService),
+      ),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({
+    super.key,
+    required this.controller,
+    required this.authService,
+  });
+
+  final AppController controller;
+  final AuthService authService;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!authService.isConfigured) {
+      return SignInScreen(authService: authService);
+    }
+
+    return StreamBuilder<AuthUser?>(
+      stream: authService.authStateChanges(),
+      initialData: authService.currentUser,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const _AuthLoadingScreen();
+        }
+        final user = snapshot.data;
+        if (user == null) return SignInScreen(authService: authService);
+
+        return _AccountBoundContent(
+          key: ValueKey(user.id),
+          controller: controller,
+          authService: authService,
+          user: user,
+        );
+      },
+    );
+  }
+}
+
+class _AccountBoundContent extends StatefulWidget {
+  const _AccountBoundContent({
+    super.key,
+    required this.controller,
+    required this.authService,
+    required this.user,
+  });
+
+  final AppController controller;
+  final AuthService authService;
+  final AuthUser user;
+
+  @override
+  State<_AccountBoundContent> createState() => _AccountBoundContentState();
+}
+
+class _AccountBoundContentState extends State<_AccountBoundContent> {
+  late Future<AccountConnectionResult> _connection;
+
+  @override
+  void initState() {
+    super.initState();
+    _connection = widget.user.id == 'local-preview-user'
+        ? Future.value(
+            const AccountConnectionResult(AccountConnectionStatus.connected),
+          )
+        : widget.controller.connectAuthenticatedAccount(
+            widget.authService,
+            widget.user,
+          );
+  }
+
+  Future<AccountConnectionResult> _submitInvite(String inviteCode) {
+    return widget.controller.connectAuthenticatedAccount(
+      widget.authService,
+      widget.user,
+      inviteCode: inviteCode,
+    );
+  }
+
+  void _useConnectionResult(AccountConnectionResult result) {
+    if (!mounted) return;
+    setState(() => _connection = Future.value(result));
+  }
+
+  Widget _buildAppContent() {
+    final isLocalPreview = widget.user.id == 'local-preview-user';
+    return widget.controller.isSetupComplete || widget.controller.demoMode
+        ? AppShell(
+            controller: widget.controller,
+            authService: isLocalPreview ? null : widget.authService,
+            authUser: isLocalPreview ? null : widget.user,
+          )
+        : InitialSetupScreen(controller: widget.controller);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.user.id == 'local-preview-user') return _buildAppContent();
+
+    return FutureBuilder<AccountConnectionResult>(
+      future: _connection,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _AuthLoadingScreen();
+        }
+        if (snapshot.hasError) {
+          return _AccountAccessScreen(
+            authService: widget.authService,
+            title: 'アカウントを確認できませんでした',
+            message: snapshot.error is CloudApiException
+                ? (snapshot.error! as CloudApiException).message
+                : '通信環境を確認して、もう一度アプリを開いてください。',
+          );
+        }
+        final result = snapshot.data!;
+        if (result.status == AccountConnectionStatus.invitationRequired) {
+          return _InvitationAccessScreen(
+            authService: widget.authService,
+            user: widget.user,
+            initialMessage: result.message,
+            onSubmit: _submitInvite,
+            onResolved: _useConnectionResult,
+          );
+        }
+        if (result.status == AccountConnectionStatus.accountMismatch) {
+          return _AccountAccessScreen(
+            authService: widget.authService,
+            title: '別のアカウントのデータがあります',
+            message: 'この端末の資格・実績は別のアカウントに関連付けられています。元のアカウントでログインしてください。',
+          );
+        }
+
+        return _buildAppContent();
+      },
+    );
+  }
+}
+
+class _InvitationAccessScreen extends StatefulWidget {
+  const _InvitationAccessScreen({
+    required this.authService,
+    required this.user,
+    required this.onSubmit,
+    required this.onResolved,
+    this.initialMessage,
+  });
+
+  final AuthService authService;
+  final AuthUser user;
+  final String? initialMessage;
+  final Future<AccountConnectionResult> Function(String code) onSubmit;
+  final ValueChanged<AccountConnectionResult> onResolved;
+
+  @override
+  State<_InvitationAccessScreen> createState() =>
+      _InvitationAccessScreenState();
+}
+
+class _InvitationAccessScreenState extends State<_InvitationAccessScreen> {
+  final _codeController = TextEditingController();
+  bool _submitting = false;
+  bool _signingOut = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final code = _codeController.text.trim();
+    if (code.isEmpty || _submitting) {
+      setState(() => _errorMessage = '招待コードを入力してください。');
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+    try {
+      final result = await widget.onSubmit(code);
+      if (!mounted) return;
+      if (result.isConnected ||
+          result.status == AccountConnectionStatus.accountMismatch) {
+        widget.onResolved(result);
+      } else {
+        setState(() {
+          _errorMessage = result.message ?? '招待コードを確認してください。';
+          _submitting = false;
+        });
+      }
+    } on CloudApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = error.message;
+          _submitting = false;
+        });
+      }
+    } on Object {
+      if (mounted) {
+        setState(() {
+          _errorMessage = '招待コードを確認できませんでした。通信環境をご確認ください。';
+          _submitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _signOut() async {
+    setState(() => _signingOut = true);
+    try {
+      await widget.authService.signOut();
+    } finally {
+      if (mounted) setState(() => _signingOut = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.mark_email_read_outlined,
+                        color: _primary,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        '招待コードを入力',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        widget.user.email == null
+                            ? '資格更新ノートは現在、招待された方のみ利用できます。'
+                            : '${widget.user.email} で利用を開始します。',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        key: const ValueKey('invite-code'),
+                        controller: _codeController,
+                        enabled: !_submitting,
+                        textCapitalization: TextCapitalization.characters,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _submit(),
+                        decoration: const InputDecoration(
+                          labelText: '招待コード',
+                          hintText: '例：ABCD-EFGH-IJKL',
+                          prefixIcon: Icon(Icons.key_rounded),
+                        ),
+                      ),
+                      if (_errorMessage ?? widget.initialMessage
+                          case final message?) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          message,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: _danger),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          key: const ValueKey('submit-invite'),
+                          onPressed: _submitting ? null : _submit,
+                          child: _submitting
+                              ? const SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('利用を開始'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: _signingOut ? null : _signOut,
+                        icon: const Icon(Icons.logout_rounded),
+                        label: const Text('別のアカウントでログイン'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountAccessScreen extends StatefulWidget {
+  const _AccountAccessScreen({
+    required this.authService,
+    required this.title,
+    required this.message,
+  });
+
+  final AuthService authService;
+  final String title;
+  final String message;
+
+  @override
+  State<_AccountAccessScreen> createState() => _AccountAccessScreenState();
+}
+
+class _AccountAccessScreenState extends State<_AccountAccessScreen> {
+  bool _isSigningOut = false;
+
+  Future<void> _signOut() async {
+    setState(() => _isSigningOut = true);
+    try {
+      await widget.authService.signOut();
+    } finally {
+      if (mounted) setState(() => _isSigningOut = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.admin_panel_settings_outlined,
+                        color: _warning,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        widget.title,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(widget.message, textAlign: TextAlign.center),
+                      const SizedBox(height: 22),
+                      OutlinedButton.icon(
+                        onPressed: _isSigningOut ? null : _signOut,
+                        icon: _isSigningOut
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.logout_rounded),
+                        label: const Text('ログアウトして戻る'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthLoadingScreen extends StatelessWidget {
+  const _AuthLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.workspace_premium_rounded, color: _primary, size: 52),
+            SizedBox(height: 20),
+            CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SignInScreen extends StatefulWidget {
+  const SignInScreen({super.key, required this.authService});
+
+  final AuthService authService;
+
+  @override
+  State<SignInScreen> createState() => _SignInScreenState();
+}
+
+class _SignInScreenState extends State<SignInScreen> {
+  String? _activeProvider;
+  String? _errorMessage;
+
+  Future<void> _signIn(String provider, Future<void> Function() action) async {
+    if (_activeProvider != null || !widget.authService.isConfigured) return;
+    setState(() {
+      _activeProvider = provider;
+      _errorMessage = null;
+    });
+    try {
+      await action();
+    } on AuthException catch (error) {
+      if (mounted && !error.wasCanceled) {
+        setState(() => _errorMessage = error.message);
+      }
+    } on Object {
+      if (mounted) {
+        setState(() => _errorMessage = 'ログインに失敗しました。もう一度お試しください。');
+      }
+    } finally {
+      if (mounted) setState(() => _activeProvider = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isConfigured = widget.authService.isConfigured;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    child: Container(
+                      width: 76,
+                      height: 76,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5F2EF),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: const Icon(
+                        Icons.workspace_premium_rounded,
+                        color: _primary,
+                        size: 40,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    '資格更新ノート',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '資格・単位・参加証を、あなたのアカウントで安全に管理します',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.blueGrey.shade600),
+                  ),
+                  const SizedBox(height: 34),
+                  if (!isConfigured) ...[
+                    _AuthMessageCard(
+                      icon: Icons.settings_suggest_outlined,
+                      message:
+                          widget.authService.configurationMessage ??
+                          '認証設定を確認してください。',
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_errorMessage != null) ...[
+                    _AuthMessageCard(
+                      icon: Icons.error_outline_rounded,
+                      message: _errorMessage!,
+                      isError: true,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  OutlinedButton.icon(
+                    key: const ValueKey('sign-in-google'),
+                    onPressed: !isConfigured || _activeProvider != null
+                        ? null
+                        : () => _signIn(
+                            'google',
+                            widget.authService.signInWithGoogle,
+                          ),
+                    icon: _activeProvider == 'google'
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const _GoogleMark(),
+                    label: const Text('Googleで続ける'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(54),
+                      backgroundColor: Colors.white,
+                      foregroundColor: _ink,
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (_appleSignInEnabled) ...[
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      key: const ValueKey('sign-in-apple'),
+                      onPressed: !isConfigured || _activeProvider != null
+                          ? null
+                          : () => _signIn(
+                              'apple',
+                              widget.authService.signInWithApple,
+                            ),
+                      icon: _activeProvider == 'apple'
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.apple_rounded),
+                      label: const Text('Appleで続ける'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF111111),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  const Text(
+                    'ログイン情報は本人確認に使用します。資格・実績はクラウド同期し、参加証は非公開ストレージへ保存します。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.blueGrey, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthMessageCard extends StatelessWidget {
+  const _AuthMessageCard({
+    required this.icon,
+    required this.message,
+    this.isError = false,
+  });
+
+  final IconData icon;
+  final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? _danger : _warning;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message)),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      'G',
+      style: TextStyle(
+        color: Color(0xFF4285F4),
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
       ),
     );
   }
@@ -154,6 +777,7 @@ class RequirementProgress {
 
 class Qualification {
   const Qualification({
+    this.id = '',
     required this.name,
     required this.organization,
     required this.deadline,
@@ -163,6 +787,14 @@ class Qualification {
     required this.requiredTotal,
     required this.headline,
     required this.requirements,
+    this.plannedTotal = 0,
+    this.licenseNumber = '',
+    this.memberId = '',
+    this.memberPortalUrl = '',
+    this.currentByCategory = const {},
+    this.plannedByCategory = const {},
+    this.creditEntries = const [],
+    this.isDemo = false,
     this.hasVerifiedRequirements = true,
     this.systemType,
     this.renewalCycleYears,
@@ -175,12 +807,14 @@ class Qualification {
     this.otherConditions = const [],
   });
 
+  final String id;
   final String name;
   final String organization;
   final String deadline;
   final int remainingDays;
   final QualificationState state;
   final double total;
+  final double plannedTotal;
   final double requiredTotal;
   final String headline;
   final List<RequirementProgress> requirements;
@@ -194,9 +828,22 @@ class Qualification {
   final DateTime? sourceCheckedAt;
   final List<String> mandatoryNotes;
   final List<String> otherConditions;
+  final String licenseNumber;
+  final String memberId;
+  final String memberPortalUrl;
+  final Map<String, double> currentByCategory;
+  final Map<String, double> plannedByCategory;
+  final List<CreditBreakdownEntry> creditEntries;
+  final bool isDemo;
 
   double get progress =>
       requiredTotal <= 0 ? 0 : (total / requiredTotal).clamp(0, 1);
+  double get projectedTotal => total + plannedTotal;
+  double get projectedProgress =>
+      requiredTotal <= 0 ? 0 : (projectedTotal / requiredTotal).clamp(0, 1);
+
+  double currentForCategory(String label) =>
+      _creditsForCategory(currentByCategory, label);
 }
 
 class QualificationCatalogEntry {
@@ -706,6 +1353,7 @@ const sampleQualifications = <Qualification>[
         note: '必須項目',
       ),
     ],
+    isDemo: true,
   ),
   Qualification(
     name: '内科専門医',
@@ -737,6 +1385,7 @@ const sampleQualifications = <Qualification>[
         note: '達成済み',
       ),
     ],
+    isDemo: true,
   ),
   Qualification(
     name: '循環器専門医',
@@ -768,10 +1417,14 @@ const sampleQualifications = <Qualification>[
         note: '達成済み',
       ),
     ],
+    isDemo: true,
   ),
 ];
 
-Qualification qualificationFromStored(StoredQualification stored) {
+Qualification qualificationFromStored(
+  StoredQualification stored,
+  AppSnapshot snapshot,
+) {
   final deadline = _parseFlexibleDate(stored.deadline);
   final remainingDays = deadline == null
       ? 0
@@ -780,19 +1433,38 @@ Qualification qualificationFromStored(StoredQualification stored) {
           deadline.month,
           deadline.day,
         ).difference(DateTime.now()).inDays;
+  final points = snapshot.pointsForQualification(stored.id);
+  final state = remainingDays < 0 || (deadline != null && remainingDays <= 180)
+      ? QualificationState.almostDue
+      : points.current > 0
+      ? QualificationState.onTrack
+      : QualificationState.needsAttention;
+  final headline = points.planned > 0
+      ? '現在${_formatNumber(points.current)}単位・参加予定 +${_formatNumber(points.planned)}単位'
+      : points.current > 0
+      ? '現在${_formatNumber(points.current)}単位を登録済みです'
+      : '実績または参加予定を登録してください';
   return Qualification(
+    id: stored.id,
     name: stored.name,
     organization: stored.organization,
     deadline: deadline == null
         ? '未登録'
         : '${deadline.year}年${deadline.month}月${deadline.day}日',
     remainingDays: remainingDays,
-    state: QualificationState.needsAttention,
-    total: 0,
+    state: state,
+    total: points.current,
+    plannedTotal: points.planned,
     requiredTotal: 0,
-    headline: '公式の更新条件を取得・確認中です',
+    headline: headline,
     requirements: const [],
     hasVerifiedRequirements: false,
+    licenseNumber: stored.licenseNumber,
+    memberId: stored.memberId,
+    memberPortalUrl: stored.memberPortalUrl,
+    currentByCategory: points.currentByCategory,
+    plannedByCategory: points.plannedByCategory,
+    creditEntries: _creditEntriesForQualification(snapshot, stored.id),
   );
 }
 
@@ -801,6 +1473,16 @@ Qualification qualificationWithOfficialRule(
   OfficialRenewalRule rule,
 ) {
   final requiredTotal = rule.requiredTotalCredits ?? 0;
+  final projectedGap = requiredTotal - qualification.projectedTotal;
+  final headline = requiredTotal <= 0
+      ? qualification.headline
+      : projectedGap <= 0 && qualification.plannedTotal > 0
+      ? '参加予定を含めると必要単位に到達する見込みです'
+      : projectedGap <= 0
+      ? '必要な総単位に到達しています'
+      : qualification.plannedTotal > 0
+      ? '参加予定を含めてあと${_formatNumber(projectedGap)}単位です'
+      : '必要な総単位まであと${_formatNumber(projectedGap)}単位です';
   final requirements = <RequirementProgress>[];
   if (requiredTotal > 0) {
     requirements.add(
@@ -830,7 +1512,7 @@ Qualification qualificationWithOfficialRule(
     requirements.add(
       RequirementProgress(
         label: requirement.label,
-        current: 0,
+        current: qualification.currentForCategory(requirement.label),
         requiredValue: target,
         unit: requirement.unit,
         note: notes.isEmpty ? null : notes.join('・'),
@@ -838,14 +1520,16 @@ Qualification qualificationWithOfficialRule(
     );
   }
   return Qualification(
+    id: qualification.id,
     name: qualification.name,
     organization: qualification.organization,
     deadline: qualification.deadline,
     remainingDays: qualification.remainingDays,
     state: qualification.state,
     total: qualification.total,
+    plannedTotal: qualification.plannedTotal,
     requiredTotal: requiredTotal,
-    headline: '承認済みの公式更新条件を自動取得しました',
+    headline: headline,
     requirements: requirements,
     hasVerifiedRequirements: true,
     systemType: rule.systemType,
@@ -857,7 +1541,66 @@ Qualification qualificationWithOfficialRule(
     sourceCheckedAt: rule.source.checkedAt,
     mandatoryNotes: rule.mandatoryNotes,
     otherConditions: rule.otherConditions,
+    licenseNumber: qualification.licenseNumber,
+    memberId: qualification.memberId,
+    memberPortalUrl: qualification.memberPortalUrl,
+    currentByCategory: qualification.currentByCategory,
+    plannedByCategory: qualification.plannedByCategory,
+    creditEntries: qualification.creditEntries,
+    isDemo: qualification.isDemo,
   );
+}
+
+double _creditsForCategory(Map<String, double> values, String label) {
+  final normalizedLabel = _normalizeSearchText(label);
+  return values.entries
+      .where((entry) {
+        final category = _normalizeSearchText(entry.key);
+        return category == normalizedLabel ||
+            category.contains(normalizedLabel) ||
+            normalizedLabel.contains(category);
+      })
+      .fold<double>(0, (sum, entry) => sum + entry.value);
+}
+
+List<CreditBreakdownEntry> _creditEntriesForQualification(
+  AppSnapshot snapshot,
+  String qualificationId,
+) {
+  final entries = <CreditBreakdownEntry>[];
+  for (final activity in snapshot.activities) {
+    if (activity.status != '確定') continue;
+    var allocations = activity.allocations;
+    if (allocations.isEmpty && snapshot.qualifications.length == 1) {
+      allocations = [
+        StoredActivityAllocation(
+          qualificationId: snapshot.qualifications.single.id,
+          credits: activity.credits,
+        ),
+      ];
+    }
+    for (final allocation in allocations) {
+      if (allocation.qualificationId != qualificationId ||
+          allocation.credits <= 0) {
+        continue;
+      }
+      final isConference =
+          allocation.category.contains('学会') ||
+          allocation.category.contains('発表');
+      entries.add(
+        CreditBreakdownEntry(
+          title: activity.title,
+          eventType: isConference ? '学会' : '講習',
+          category: allocation.category,
+          date: activity.date.isEmpty ? '日付未入力' : activity.date,
+          organizer: activity.organizer.isEmpty ? '主催者未入力' : activity.organizer,
+          credits: allocation.credits,
+          certificationId: '',
+        ),
+      );
+    }
+  }
+  return entries;
 }
 
 DateTime? _parseFlexibleDate(String value) {
@@ -1100,6 +1843,8 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
           organization: draft.organization.trim(),
           licenseNumber: draft.licenseNumber.trim(),
           deadline: draft.deadline.trim(),
+          memberId: draft.memberId.trim(),
+          memberPortalUrl: draft.memberPortalUrl.trim(),
         ),
       );
       for (final subspecialtyName in draft.subspecialtyNames) {
@@ -1248,13 +1993,17 @@ class _QualificationDraft {
     required this.organization,
     required this.licenseNumber,
     required this.deadline,
-  }) : subspecialtyNames = {};
+  }) : memberId = '',
+       memberPortalUrl = '',
+       subspecialtyNames = {};
 
   final int id;
   String name;
   String organization;
   String licenseNumber;
   String deadline;
+  String memberId;
+  String memberPortalUrl;
   Set<String> subspecialtyNames;
 }
 
@@ -2088,6 +2837,25 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
             ),
             const SizedBox(height: 12),
             TextFormField(
+              initialValue: widget.draft.memberId,
+              onChanged: (value) => widget.draft.memberId = value,
+              decoration: const InputDecoration(
+                labelText: '学会会員ID（任意）',
+                hintText: '会員サイトで使うID・会員番号',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: widget.draft.memberPortalUrl,
+              onChanged: (value) => widget.draft.memberPortalUrl = value,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: '学会会員サイトURL（任意）',
+                hintText: 'https://...',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
               initialValue: widget.draft.deadline,
               onChanged: (value) => widget.draft.deadline = value,
               keyboardType: TextInputType.datetime,
@@ -2370,9 +3138,16 @@ class _SubspecialtyChoice extends StatelessWidget {
 }
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.controller});
+  const AppShell({
+    super.key,
+    required this.controller,
+    this.authService,
+    this.authUser,
+  });
 
   final AppController controller;
+  final AuthService? authService;
+  final AuthUser? authUser;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -2391,9 +3166,10 @@ class _AppShellState extends State<AppShell> {
     );
     if (!mounted || source == null) return;
     PickedAttachment? attachment;
-    if (widget.controller.demoMode && source != '手入力') {
+    final usesAttachment = source != '手入力' && source != '参加予定';
+    if (widget.controller.demoMode && usesAttachment) {
       attachment = const PickedAttachment(displayName: '受講証明書_0818.jpg');
-    } else if (source != '手入力') {
+    } else if (usesAttachment) {
       try {
         attachment = await _attachmentService.pick(source);
       } on Object {
@@ -2428,7 +3204,11 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final body = switch (_selectedIndex) {
       2 => ActivityListScreen(controller: widget.controller),
-      3 => SettingsScreen(controller: widget.controller),
+      3 => SettingsScreen(
+        controller: widget.controller,
+        authService: widget.authService,
+        authUser: widget.authUser,
+      ),
       _ => HomeScreen(
         controller: widget.controller,
         onRegister: _openRegistration,
@@ -2490,7 +3270,10 @@ class HomeScreen extends StatelessWidget {
     final qualifications = controller.demoMode
         ? sampleQualifications
         : controller.snapshot.qualifications
-              .map(qualificationFromStored)
+              .map(
+                (stored) =>
+                    qualificationFromStored(stored, controller.snapshot),
+              )
               .toList(growable: false);
     final datedQualifications =
         qualifications.where((item) => item.deadline != '未登録').toList()
@@ -2571,7 +3354,10 @@ class HomeScreen extends StatelessWidget {
   void _openQualification(BuildContext context, Qualification qualification) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => QualificationDetailScreen(qualification: qualification),
+        builder: (_) => QualificationDetailScreen(
+          qualification: qualification,
+          controller: controller,
+        ),
       ),
     );
   }
@@ -2889,24 +3675,38 @@ class QualificationCard extends StatelessWidget {
                   ],
                 )
               else
-                const Text(
-                  '更新条件：公式情報を確認中',
-                  style: TextStyle(
-                    color: _ink,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
+                Row(
+                  children: [
+                    Text(
+                      '現在 ${_formatNumber(qualification.total)}単位',
+                      style: const TextStyle(
+                        color: _ink,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                    if (qualification.plannedTotal > 0) ...[
+                      const SizedBox(width: 10),
+                      _MiniPill(
+                        label:
+                            '予定 +${_formatNumber(qualification.plannedTotal)}単位',
+                        emphasized: true,
+                      ),
+                    ],
+                  ],
+                ),
+              if (qualification.requiredTotal > 0) ...[
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: qualification.progress,
+                    minHeight: 8,
+                    backgroundColor: const Color(0xFFE7ECE9),
+                    color: style.foreground,
                   ),
                 ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(99),
-                child: LinearProgressIndicator(
-                  value: qualification.progress,
-                  minHeight: 8,
-                  backgroundColor: const Color(0xFFE7ECE9),
-                  color: style.foreground,
-                ),
-              ),
+              ],
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -2976,10 +3776,12 @@ class QualificationDetailScreen extends StatefulWidget {
   const QualificationDetailScreen({
     super.key,
     required this.qualification,
+    this.controller,
     this.officialRuleLoader,
   });
 
   final Qualification qualification;
+  final AppController? controller;
   final OfficialRuleLoader? officialRuleLoader;
 
   @override
@@ -3014,12 +3816,10 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
     try {
       final customLoader = widget.officialRuleLoader;
       final lookup = customLoader != null
-          ? await customLoader(widget.qualification.name)
+          ? await customLoader(_qualification.name)
           : await const OfficialRuleService().fetchForQualification(
-              widget.qualification.name,
-              renewalYear: _parseFlexibleDate(
-                widget.qualification.deadline,
-              )?.year,
+              _qualification.name,
+              renewalYear: _parseFlexibleDate(_qualification.deadline)?.year,
             );
       if (!mounted) return;
       setState(() {
@@ -3027,10 +3827,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
         if (rule == null) {
           _ruleState = _OfficialRuleViewState.unavailable;
         } else {
-          _qualification = qualificationWithOfficialRule(
-            widget.qualification,
-            rule,
-          );
+          _qualification = qualificationWithOfficialRule(_qualification, rule);
           _ruleState = _OfficialRuleViewState.ready;
         }
       });
@@ -3068,12 +3865,34 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
     _OfficialRuleViewState.failed => '通信状況を確認して再取得してください',
   };
 
+  Future<void> _editQualification() async {
+    final controller = widget.controller;
+    if (controller == null || _qualification.id.isEmpty) return;
+    final stored = controller.snapshot.qualifications
+        .where((item) => item.id == _qualification.id)
+        .firstOrNull;
+    if (stored == null) return;
+    final updated = await showDialog<StoredQualification>(
+      context: context,
+      builder: (context) => _QualificationEditDialog(qualification: stored),
+    );
+    if (updated == null) return;
+    await controller.updateQualification(updated);
+    if (!mounted) return;
+    setState(() {
+      _qualification = qualificationFromStored(updated, controller.snapshot);
+      _ruleState = _OfficialRuleViewState.loading;
+    });
+    await _loadOfficialRule();
+  }
+
   @override
   Widget build(BuildContext context) {
     final qualification = _qualification;
     final status = _statusStyle(qualification.state);
-    final creditEntries =
-        creditBreakdownByQualification[qualification.name] ?? const [];
+    final creditEntries = qualification.isDemo
+        ? creditBreakdownByQualification[qualification.name] ?? const []
+        : qualification.creditEntries;
     return Scaffold(
       appBar: AppBar(
         title: const Text('資格の詳細'),
@@ -3081,8 +3900,9 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
         actions: [
           IconButton(
             tooltip: '編集',
-            onPressed: () =>
-                _showPrototypeMessage(context, '資格・条件の編集画面は次の検討対象です'),
+            onPressed: widget.controller != null && qualification.id.isNotEmpty
+                ? _editQualification
+                : null,
             icon: const Icon(Icons.edit_outlined),
           ),
         ],
@@ -3183,6 +4003,14 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                 ),
                 const SizedBox(height: 18),
                 _DeadlineRow(qualification: qualification),
+                const SizedBox(height: 12),
+                _PointForecastCard(qualification: qualification),
+                if (qualification.licenseNumber.isNotEmpty ||
+                    qualification.memberId.isNotEmpty ||
+                    qualification.memberPortalUrl.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _MembershipCard(qualification: qualification),
+                ],
                 const SizedBox(height: 28),
                 const _SectionHeading(title: '更新条件'),
                 const SizedBox(height: 12),
@@ -3232,21 +4060,33 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                   style: TextStyle(color: Colors.blueGrey.shade600),
                 ),
                 const SizedBox(height: 12),
-                _CreditBreakdownSummary(entries: creditEntries),
-                const SizedBox(height: 12),
-                ...creditEntries.map(
-                  (entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: CreditBreakdownCard(
-                      entry: entry,
-                      onTap: () => _showCreditBreakdownDetail(
-                        context,
-                        qualification,
-                        entry,
+                if (creditEntries.isEmpty)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(18),
+                      child: Text(
+                        'この資格に割り当てられた確定実績はまだありません。',
+                        style: TextStyle(color: Colors.blueGrey),
+                      ),
+                    ),
+                  )
+                else ...[
+                  _CreditBreakdownSummary(entries: creditEntries),
+                  const SizedBox(height: 12),
+                  ...creditEntries.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: CreditBreakdownCard(
+                        entry: entry,
+                        onTap: () => _showCreditBreakdownDetail(
+                          context,
+                          qualification,
+                          entry,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 10),
                 Card(
                   child: Column(
@@ -3265,7 +4105,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                           '登録済みの実績',
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
-                        subtitle: const Text('12件（証明書あり 10件）'),
+                        subtitle: Text('${creditEntries.length}件'),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => _showPrototypeMessage(
                           context,
@@ -3618,6 +4458,296 @@ class _DeadlineRow extends StatelessWidget {
   }
 }
 
+class _PointForecastCard extends StatelessWidget {
+  const _PointForecastCard({required this.qualification});
+
+  final Qualification qualification;
+
+  @override
+  Widget build(BuildContext context) {
+    final gap = qualification.requiredTotal - qualification.projectedTotal;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ポイント見込み',
+              style: TextStyle(
+                color: _ink,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _PointMetric(
+                    label: '現在',
+                    value: _formatNumber(qualification.total),
+                    color: _primary,
+                  ),
+                ),
+                Expanded(
+                  child: _PointMetric(
+                    label: '参加予定',
+                    value: '+${_formatNumber(qualification.plannedTotal)}',
+                    color: _warning,
+                  ),
+                ),
+                Expanded(
+                  child: _PointMetric(
+                    label: '見込み',
+                    value: _formatNumber(qualification.projectedTotal),
+                    color: _ink,
+                  ),
+                ),
+              ],
+            ),
+            if (qualification.requiredTotal > 0) ...[
+              const SizedBox(height: 14),
+              Text(
+                gap <= 0
+                    ? '予定を含めると必要な${_formatNumber(qualification.requiredTotal)}単位に到達します'
+                    : '予定を含めてもあと${_formatNumber(gap)}単位必要です',
+                style: TextStyle(
+                  color: gap <= 0 ? _primary : _warning,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PointMetric extends StatelessWidget {
+  const _PointMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          '$value単位',
+          style: TextStyle(
+            color: color,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MembershipCard extends StatelessWidget {
+  const _MembershipCard({required this.qualification});
+
+  final Qualification qualification;
+
+  Future<void> _copy(BuildContext context, String value, String label) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$labelをコピーしました')));
+  }
+
+  Future<void> _openPortal(BuildContext context) async {
+    final raw = qualification.memberPortalUrl.trim();
+    final uri = Uri.tryParse(raw.contains('://') ? raw : 'https://$raw');
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('会員サイトを開けませんでした')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Column(
+        children: [
+          if (qualification.licenseNumber.isNotEmpty)
+            ListTile(
+              leading: const Icon(Icons.workspace_premium_outlined),
+              title: const Text('資格番号'),
+              subtitle: SelectableText(qualification.licenseNumber),
+              trailing: const Icon(Icons.copy_rounded),
+              onTap: () => _copy(context, qualification.licenseNumber, '資格番号'),
+            ),
+          if (qualification.licenseNumber.isNotEmpty &&
+              qualification.memberId.isNotEmpty)
+            const Divider(height: 1, indent: 16, endIndent: 16),
+          if (qualification.memberId.isNotEmpty)
+            ListTile(
+              leading: const Icon(Icons.badge_outlined),
+              title: const Text('学会会員ID'),
+              subtitle: SelectableText(qualification.memberId),
+              trailing: const Icon(Icons.copy_rounded),
+              onTap: () => _copy(context, qualification.memberId, '学会会員ID'),
+            ),
+          if ((qualification.licenseNumber.isNotEmpty ||
+                  qualification.memberId.isNotEmpty) &&
+              qualification.memberPortalUrl.isNotEmpty)
+            const Divider(height: 1, indent: 16, endIndent: 16),
+          if (qualification.memberPortalUrl.isNotEmpty)
+            ListTile(
+              leading: const Icon(Icons.open_in_new_rounded, color: _primary),
+              title: const Text('学会会員サイトを開く'),
+              subtitle: Text(
+                qualification.memberPortalUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => _openPortal(context),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QualificationEditDialog extends StatefulWidget {
+  const _QualificationEditDialog({required this.qualification});
+
+  final StoredQualification qualification;
+
+  @override
+  State<_QualificationEditDialog> createState() =>
+      _QualificationEditDialogState();
+}
+
+class _QualificationEditDialogState extends State<_QualificationEditDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _organizationController;
+  late final TextEditingController _licenseController;
+  late final TextEditingController _memberIdController;
+  late final TextEditingController _portalController;
+  late final TextEditingController _deadlineController;
+
+  @override
+  void initState() {
+    super.initState();
+    final qualification = widget.qualification;
+    _nameController = TextEditingController(text: qualification.name);
+    _organizationController = TextEditingController(
+      text: qualification.organization,
+    );
+    _licenseController = TextEditingController(
+      text: qualification.licenseNumber,
+    );
+    _memberIdController = TextEditingController(text: qualification.memberId);
+    _portalController = TextEditingController(
+      text: qualification.memberPortalUrl,
+    );
+    _deadlineController = TextEditingController(text: qualification.deadline);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _organizationController.dispose();
+    _licenseController.dispose();
+    _memberIdController.dispose();
+    _portalController.dispose();
+    _deadlineController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (_nameController.text.trim().isEmpty) return;
+    Navigator.pop(
+      context,
+      widget.qualification.copyWith(
+        name: _nameController.text.trim(),
+        organization: _organizationController.text.trim(),
+        licenseNumber: _licenseController.text.trim(),
+        memberId: _memberIdController.text.trim(),
+        memberPortalUrl: _portalController.text.trim(),
+        deadline: _deadlineController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('資格情報を編集'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: '資格名'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _organizationController,
+              decoration: const InputDecoration(labelText: '認定団体・学会'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _licenseController,
+              decoration: const InputDecoration(labelText: '資格番号（任意）'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _memberIdController,
+              decoration: const InputDecoration(labelText: '学会会員ID（任意）'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _portalController,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(labelText: '学会会員サイトURL（任意）'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _deadlineController,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '次回更新期限',
+                hintText: 'YYYY/MM/DD',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('キャンセル'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('保存')),
+      ],
+    );
+  }
+}
+
 class RequirementCard extends StatelessWidget {
   const RequirementCard({super.key, required this.requirement});
 
@@ -3873,17 +5003,19 @@ class CreditBreakdownCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 9),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.badge_outlined,
                           color: Colors.blueGrey,
                           size: 17,
                         ),
-                        SizedBox(width: 5),
+                        const SizedBox(width: 5),
                         Text(
-                          'タップして10桁IDを確認',
-                          style: TextStyle(
+                          entry.certificationId.isEmpty
+                              ? 'タップして実績の詳細を確認'
+                              : 'タップして10桁IDを確認',
+                          style: const TextStyle(
                             color: Colors.blueGrey,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -3939,7 +5071,10 @@ class RegistrationChoiceSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 22),
-              Text('参加証を登録', style: Theme.of(context).textTheme.headlineMedium),
+              Text(
+                '参加証・参加予定を登録',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
               const SizedBox(height: 6),
               Text(
                 '登録方法を選んでください',
@@ -3980,6 +5115,17 @@ class RegistrationChoiceSheet extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 132,
+                width: double.infinity,
+                child: _RegistrationChoice(
+                  icon: Icons.event_available_outlined,
+                  label: '参加予定を登録',
+                  subtitle: '予定ポイントを見込みへ反映',
+                  onTap: () => Navigator.pop(context, '参加予定'),
+                ),
+              ),
               const SizedBox(height: 16),
               const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3988,7 +5134,7 @@ class RegistrationChoiceSheet extends StatelessWidget {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '患者情報が写った画像は登録しないでください。読み取り内容は確定前に必ず確認します。',
+                      '患者情報が写った画像は登録しないでください。画像は対応端末では端末内でOCRし、氏名・会員番号などラベル付き個人情報を除いた文字を認証済みAI APIへ送ります。Web版または端末内OCR失敗時は添付ファイルを送る場合があります。読み取り内容は確定前に必ず確認します。',
                       style: TextStyle(
                         color: Colors.blueGrey,
                         fontSize: 13,
@@ -4065,11 +5211,13 @@ class CertificateReviewScreen extends StatefulWidget {
     required this.source,
     required this.controller,
     this.attachment,
+    this.ocrService,
   });
 
   final String source;
   final AppController controller;
   final PickedAttachment? attachment;
+  final CertificateOcrService? ocrService;
 
   @override
   State<CertificateReviewScreen> createState() =>
@@ -4077,16 +5225,24 @@ class CertificateReviewScreen extends StatefulWidget {
 }
 
 class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
+  late final CertificateOcrService _ocrService;
   late final TextEditingController _eventController;
   late final TextEditingController _dateController;
   late final TextEditingController _organizerController;
   late final TextEditingController _creditsController;
+  late final TextEditingController _categoryController;
+  late final TextEditingController _eventUrlController;
   final Set<String> _selectedQualificationIds = {};
   bool _saving = false;
+  bool _reading = false;
+  CertificateExtraction? _extraction;
+  String? _readError;
+  String? _ocrEngine;
 
   @override
   void initState() {
     super.initState();
+    _ocrService = widget.ocrService ?? createCertificateOcrService();
     final usesSample = widget.controller.demoMode;
     _eventController = TextEditingController(
       text: usesSample ? '第42回 地域医療研修会' : '',
@@ -4098,9 +5254,17 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
       text: usesSample ? '地域医療研修センター' : '',
     );
     _creditsController = TextEditingController(text: usesSample ? '2' : '');
+    _categoryController = TextEditingController();
+    _eventUrlController = TextEditingController();
     _selectedQualificationIds.addAll(
       widget.controller.snapshot.qualifications.map((item) => item.id),
     );
+    if (!usesSample &&
+        widget.attachment != null &&
+        widget.source != '手入力' &&
+        widget.source != '参加予定') {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _readAttachment());
+    }
   }
 
   @override
@@ -4109,8 +5273,94 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
     _dateController.dispose();
     _organizerController.dispose();
     _creditsController.dispose();
+    _categoryController.dispose();
+    _eventUrlController.dispose();
     super.dispose();
   }
+
+  Future<void> _readAttachment() async {
+    final attachment = widget.attachment;
+    if (_reading || attachment == null) return;
+    setState(() {
+      _reading = true;
+      _readError = null;
+    });
+    var ocrText = '';
+    var includeAttachment = !_ocrService.isSupported;
+    try {
+      if (_ocrService.isSupported) {
+        try {
+          final ocr = await _ocrService.recognize(attachment);
+          ocrText = ocr.text;
+          _ocrEngine = ocr.engine;
+        } on CertificateOcrException catch (error) {
+          includeAttachment = true;
+          _ocrEngine = null;
+          _readError = error.message;
+        }
+      }
+      final extraction = await widget.controller.extractCertificate(
+        ocrText: ocrText,
+        attachment: attachment,
+        includeAttachment: includeAttachment,
+      );
+      if (!mounted) return;
+      _applyExtraction(extraction);
+      setState(() {
+        _extraction = extraction;
+        _readError = extraction.hasUsefulValues
+            ? null
+            : extraction.warnings.isNotEmpty
+            ? extraction.warnings.first
+            : '参加証の項目を自動判定できませんでした。';
+      });
+    } on CloudApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _readError = error.message);
+    } on Object {
+      if (!mounted) return;
+      setState(() => _readError = '参加証を自動読み取りできませんでした。手入力するか、再試行してください。');
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+  }
+
+  void _applyExtraction(CertificateExtraction extraction) {
+    if (extraction.title.isNotEmpty) _eventController.text = extraction.title;
+    if (extraction.date.isNotEmpty) _dateController.text = extraction.date;
+    if (extraction.organizer.isNotEmpty) {
+      _organizerController.text = extraction.organizer;
+    }
+    final credits = extraction.credits;
+    if (credits != null) {
+      _creditsController.text = credits == credits.roundToDouble()
+          ? credits.toInt().toString()
+          : credits.toString();
+    }
+    if (extraction.category.isNotEmpty) {
+      _categoryController.text = extraction.category;
+    }
+    if (extraction.qualificationNames.isNotEmpty) {
+      final matched = widget.controller.snapshot.qualifications
+          .where((item) => extraction.qualificationNames.contains(item.name))
+          .map((item) => item.id)
+          .toSet();
+      if (matched.isNotEmpty) {
+        _selectedQualificationIds
+          ..clear()
+          ..addAll(matched);
+      }
+    }
+  }
+
+  String? _confidenceLabel(String field) {
+    final score = _extraction?.confidenceFor(field);
+    if (score == null) return null;
+    return '${(score * 100).round()}%';
+  }
+
+  bool _needsCheck(String field) =>
+      (_extraction?.confidenceFor(field) ?? 1) < 0.85;
 
   Future<void> _save({required bool draft}) async {
     if (_saving) return;
@@ -4120,40 +5370,95 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
       ).showSnackBar(const SnackBar(content: Text('研修会・イベント名を入力してください')));
       return;
     }
-    setState(() => _saving = true);
-    final activity = StoredActivity(
-      id: 'activity-${DateTime.now().microsecondsSinceEpoch}',
-      title: _eventController.text.trim(),
-      date: _dateController.text.trim(),
-      organizer: _organizerController.text.trim(),
-      status: draft ? '下書き' : '確定',
-      credits: double.tryParse(_creditsController.text.trim()) ?? 0,
-      source: widget.source,
-      createdAt: DateTime.now().toIso8601String(),
-      attachmentPath: widget.attachment?.path,
-    );
-    await widget.controller.addActivity(activity);
-    if (!mounted) return;
-    if (draft) {
-      Navigator.of(context).pop();
+    if (widget.source == '参加予定' &&
+        _parseFlexibleDate(_dateController.text) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('開催日をYYYY/MM/DD形式で入力してください')),
+      );
       return;
     }
-    await Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => RegistrationResultScreen(
-          qualificationCount: _selectedQualificationIds.length,
-          showSampleProgress: widget.controller.demoMode,
+    final credits = double.tryParse(_creditsController.text.trim()) ?? 0;
+    if (credits < 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ポイントは0以上で入力してください')));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final attachmentPath = await widget.controller.uploadAttachment(
+        widget.attachment,
+      );
+      final activity = StoredActivity(
+        id: 'activity-${DateTime.now().microsecondsSinceEpoch}',
+        title: _eventController.text.trim(),
+        date: _dateController.text.trim(),
+        organizer: _organizerController.text.trim(),
+        status: draft
+            ? '下書き'
+            : widget.source == '参加予定'
+            ? '参加予定'
+            : '確定',
+        credits: credits,
+        source: widget.source,
+        createdAt: DateTime.now().toIso8601String(),
+        attachmentPath: attachmentPath,
+        eventUrl: _eventUrlController.text.trim(),
+        allocations: _selectedQualificationIds
+            .map(
+              (qualificationId) => StoredActivityAllocation(
+                qualificationId: qualificationId,
+                credits: credits,
+                category: _categoryController.text.trim().isEmpty
+                    ? '未分類'
+                    : _categoryController.text.trim(),
+              ),
+            )
+            .toList(growable: false),
+      );
+      await widget.controller.addActivity(activity);
+      if (!mounted) return;
+      if (draft) {
+        Navigator.of(context).pop();
+        return;
+      }
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => RegistrationResultScreen(
+            qualificationCount: _selectedQualificationIds.length,
+            showSampleProgress: widget.controller.demoMode,
+            isPlanned: widget.source == '参加予定',
+          ),
         ),
-      ),
-    );
+      );
+    } on CloudApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('参加証を保存できませんでした。もう一度お試しください。')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isManual = widget.source == '手入力';
+    final isPlanned = widget.source == '参加予定';
     return Scaffold(
       appBar: AppBar(
-        title: Text(isManual ? '実績を手入力' : '読み取り内容の確認'),
+        title: Text(
+          isPlanned
+              ? '参加予定を登録'
+              : isManual
+              ? '実績を手入力'
+              : '読み取り内容の確認',
+        ),
         backgroundColor: _canvas,
       ),
       body: SafeArea(
@@ -4165,45 +5470,86 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
               children: [
                 const _StepIndicator(currentStep: 2),
                 const SizedBox(height: 24),
-                if (!isManual) ...[
+                if (!isManual && !isPlanned) ...[
                   _CertificatePreview(
                     source: widget.source,
                     fileName: widget.attachment?.displayName,
+                    hasReadResult:
+                        widget.controller.demoMode ||
+                        _extraction?.hasUsefulValues == true,
                   ),
                   const SizedBox(height: 14),
-                  const _ReviewWarning(),
+                  if (widget.controller.demoMode)
+                    const _ReviewWarning()
+                  else
+                    _CertificateReadStatus(
+                      reading: _reading,
+                      extraction: _extraction,
+                      error: _readError,
+                      ocrEngine: _ocrEngine,
+                      onRetry: _readAttachment,
+                    ),
                   const SizedBox(height: 26),
                 ],
                 Text('参加情報', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 6),
                 Text(
-                  '読み取った内容が正しいか確認してください',
+                  isPlanned
+                      ? '開催情報と、もらえる予定ポイントを入力してください'
+                      : isManual
+                      ? '参加情報を入力してください'
+                      : '読み取った内容が正しいか、参加証と照合してください',
                   style: TextStyle(color: Colors.blueGrey.shade600),
                 ),
                 const SizedBox(height: 16),
                 _LabeledField(
                   label: '研修会・イベント名',
                   controller: _eventController,
-                  confidence: isManual ? null : '98%',
+                  confidence: widget.controller.demoMode
+                      ? '98%'
+                      : _confidenceLabel('title'),
+                  needsCheck: _needsCheck('title'),
                 ),
                 const SizedBox(height: 14),
                 _LabeledField(
                   label: '開催日',
                   controller: _dateController,
-                  confidence: isManual ? null : '96%',
+                  confidence: widget.controller.demoMode
+                      ? '96%'
+                      : _confidenceLabel('date'),
+                  needsCheck: _needsCheck('date'),
                 ),
                 const SizedBox(height: 14),
                 _LabeledField(
                   label: '主催者',
                   controller: _organizerController,
-                  confidence: isManual ? null : '82%',
-                  needsCheck: !isManual,
+                  confidence: widget.controller.demoMode
+                      ? '82%'
+                      : _confidenceLabel('organizer'),
+                  needsCheck:
+                      widget.controller.demoMode || _needsCheck('organizer'),
                 ),
                 const SizedBox(height: 14),
                 _LabeledField(
                   label: '取得単位（不明な場合は空欄）',
                   controller: _creditsController,
+                  confidence: _confidenceLabel('credits'),
+                  needsCheck: _needsCheck('credits'),
                 ),
+                const SizedBox(height: 14),
+                _LabeledField(
+                  label: '単位区分（任意）',
+                  controller: _categoryController,
+                  confidence: _confidenceLabel('category'),
+                  needsCheck: _needsCheck('category'),
+                ),
+                if (isPlanned) ...[
+                  const SizedBox(height: 14),
+                  _LabeledField(
+                    label: '学会・イベントURL（任意）',
+                    controller: _eventUrlController,
+                  ),
+                ],
                 const SizedBox(height: 28),
                 Row(
                   children: [
@@ -4231,14 +5577,18 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _AllocationCard(
                       qualification: qualification.name,
-                      category: '区分は公式条件と照合',
+                      category: _categoryController.text.trim().isEmpty
+                          ? '未分類'
+                          : _categoryController.text.trim(),
                       credits: _creditsController.text.trim().isEmpty
                           ? '単位未確認'
                           : '${_creditsController.text.trim()}単位',
                       selected: _selectedQualificationIds.contains(
                         qualification.id,
                       ),
-                      reason: '登録資格と認定団体の公式更新条件を照合して確定します',
+                      reason: isPlanned
+                          ? '参加後に参加証を登録すると確定ポイントへ移せます'
+                          : 'この資格の現在ポイントへ反映します',
                       onChanged: (value) => setState(() {
                         if (value) {
                           _selectedQualificationIds.add(qualification.id);
@@ -4286,7 +5636,7 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                   onPressed: _selectedQualificationIds.isNotEmpty && !_saving
                       ? () => _save(draft: false)
                       : null,
-                  child: const Text('確定して登録'),
+                  child: Text(isPlanned ? '予定として登録' : '確定して登録'),
                 ),
               ),
             ],
@@ -4370,10 +5720,15 @@ class _StepIndicator extends StatelessWidget {
 }
 
 class _CertificatePreview extends StatelessWidget {
-  const _CertificatePreview({required this.source, this.fileName});
+  const _CertificatePreview({
+    required this.source,
+    required this.hasReadResult,
+    this.fileName,
+  });
 
   final String source;
   final String? fileName;
+  final bool hasReadResult;
 
   @override
   Widget build(BuildContext context) {
@@ -4465,13 +5820,17 @@ class _CertificatePreview extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.check_circle_rounded, color: _primary, size: 19),
-                    SizedBox(width: 6),
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: _primary,
+                      size: 19,
+                    ),
+                    const SizedBox(width: 6),
                     Text(
-                      '読み取り完了',
-                      style: TextStyle(
+                      hasReadResult ? '読み取り完了' : 'ファイルを添付済み',
+                      style: const TextStyle(
                         color: _primary,
                         fontWeight: FontWeight.w700,
                       ),
@@ -4541,6 +5900,112 @@ class _ReviewWarning extends StatelessWidget {
   }
 }
 
+class _CertificateReadStatus extends StatelessWidget {
+  const _CertificateReadStatus({
+    required this.reading,
+    required this.onRetry,
+    this.extraction,
+    this.error,
+    this.ocrEngine,
+  });
+
+  final bool reading;
+  final CertificateExtraction? extraction;
+  final String? error;
+  final String? ocrEngine;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final result = extraction;
+    final succeeded = result?.hasUsefulValues == true;
+    final warnings = result?.warnings ?? const <String>[];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: succeeded
+            ? const Color(0xFFE5F2EF)
+            : error != null
+            ? const Color(0xFFFFF2E1)
+            : const Color(0xFFEAF0F4),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (reading)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            )
+          else
+            Icon(
+              succeeded
+                  ? Icons.auto_awesome_rounded
+                  : Icons.warning_amber_rounded,
+              color: succeeded ? _primary : _warning,
+            ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  reading
+                      ? '端末内で文字を読み取り、項目を構造化しています…'
+                      : succeeded
+                      ? '自動入力しました。確定前にすべての項目を確認してください。'
+                      : error ?? '自動読み取りを開始できます。',
+                  style: const TextStyle(
+                    color: _ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (!reading && succeeded) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    [
+                      if (ocrEngine != null) 'OCR: $ocrEngine',
+                      '抽出: ${result!.extractionMethod}',
+                    ].join(' / '),
+                    style: const TextStyle(
+                      color: Colors.blueGrey,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                if (!reading && warnings.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  ...warnings
+                      .take(3)
+                      .map(
+                        (warning) => Text(
+                          '・$warning',
+                          style: const TextStyle(
+                            color: Color(0xFF77572E),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                ],
+                if (!reading && !succeeded) ...[
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('再試行'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LabeledField extends StatelessWidget {
   const _LabeledField({
     required this.label,
@@ -4583,6 +6048,7 @@ class _LabeledField extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         TextField(
+          key: ValueKey('certificate-field-$label'),
           controller: controller,
           style: const TextStyle(color: _ink, fontSize: 16),
           decoration: InputDecoration(
@@ -4693,10 +6159,12 @@ class RegistrationResultScreen extends StatelessWidget {
     super.key,
     required this.qualificationCount,
     this.showSampleProgress = false,
+    this.isPlanned = false,
   });
 
   final int qualificationCount;
   final bool showSampleProgress;
+  final bool isPlanned;
 
   @override
   Widget build(BuildContext context) {
@@ -4725,13 +6193,15 @@ class RegistrationResultScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  '登録しました',
+                  isPlanned ? '参加予定を登録しました' : '登録しました',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '$qualificationCount件の資格に単位を反映しました',
+                  isPlanned
+                      ? '$qualificationCount件の資格に予定ポイントを反映しました'
+                      : '$qualificationCount件の資格に単位を反映しました',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.blueGrey.shade600,
@@ -4741,7 +6211,7 @@ class RegistrationResultScreen extends StatelessWidget {
                 const SizedBox(height: 28),
                 const _StepIndicator(currentStep: 3),
                 const SizedBox(height: 28),
-                if (showSampleProgress)
+                if (showSampleProgress && !isPlanned)
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(18),
@@ -4833,7 +6303,7 @@ class _ResultProgressRow extends StatelessWidget {
   }
 }
 
-enum ActivityFilter { all, needsReview, confirmed }
+enum ActivityFilter { all, planned, needsReview, confirmed }
 
 class ActivityListScreen extends StatefulWidget {
   const ActivityListScreen({super.key, required this.controller});
@@ -4846,11 +6316,13 @@ class ActivityListScreen extends StatefulWidget {
 
 class _ActivityListScreenState extends State<ActivityListScreen> {
   ActivityFilter _filter = ActivityFilter.all;
+  String _query = '';
 
   @override
   Widget build(BuildContext context) {
     final sampleActivities = <_ActivityData>[
       const _ActivityData(
+        id: 'sample-1',
         title: '第42回 地域医療研修会',
         date: '2026/08/18',
         organizer: '地域医療研修センター',
@@ -4859,6 +6331,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         needsReview: true,
       ),
       const _ActivityData(
+        id: 'sample-2',
         title: '医療安全講習会',
         date: '2026/07/12',
         organizer: '県医師会',
@@ -4866,6 +6339,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         credits: '1単位',
       ),
       const _ActivityData(
+        id: 'sample-3',
         title: '循環器カンファレンス',
         date: '2026/06/28',
         organizer: '循環器学会',
@@ -4873,6 +6347,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         credits: '3単位',
       ),
       const _ActivityData(
+        id: 'sample-4',
         title: '感染対策eラーニング',
         date: '2026/05/09',
         organizer: '研修センター',
@@ -4880,12 +6355,23 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         credits: '単位未確認',
         needsReview: true,
       ),
+      const _ActivityData(
+        id: 'sample-5',
+        title: '日本内科学会 総会・講演会',
+        date: '2027/04/09',
+        organizer: '日本内科学会',
+        status: '参加予定',
+        credits: '5単位',
+        eventUrl: 'https://www.naika.or.jp/',
+        qualificationNames: '内科専門医',
+      ),
     ];
     final activities = widget.controller.demoMode
         ? sampleActivities
         : widget.controller.snapshot.activities
               .map(
                 (item) => _ActivityData(
+                  id: item.id,
                   title: item.title,
                   date: item.date.isEmpty ? '日付未入力' : item.date,
                   organizer: item.organizer.isEmpty ? '主催者未入力' : item.organizer,
@@ -4893,17 +6379,56 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                   credits: item.credits > 0
                       ? '${_formatNumber(item.credits)}単位'
                       : '単位未確認',
-                  needsReview: item.status != '確定',
+                  needsReview: item.status == '下書き' || item.status == '要確認',
+                  eventUrl: item.eventUrl,
+                  qualificationNames:
+                      item.allocations.isEmpty &&
+                          widget.controller.snapshot.qualifications.length == 1
+                      ? widget.controller.snapshot.qualifications.single.name
+                      : item.allocations
+                            .map(
+                              (allocation) => widget
+                                  .controller
+                                  .snapshot
+                                  .qualifications
+                                  .where(
+                                    (qualification) =>
+                                        qualification.id ==
+                                        allocation.qualificationId,
+                                  )
+                                  .firstOrNull
+                                  ?.name,
+                            )
+                            .whereType<String>()
+                            .toSet()
+                            .join('、'),
                 ),
               )
               .toList();
     final filtered = activities.where((item) {
-      return switch (_filter) {
+      final matchesFilter = switch (_filter) {
         ActivityFilter.all => true,
+        ActivityFilter.planned => item.status == '参加予定',
         ActivityFilter.needsReview => item.needsReview,
         ActivityFilter.confirmed => item.status == '確定',
       };
+      if (!matchesFilter) return false;
+      final query = _normalizeSearchText(_query);
+      if (query.isEmpty) return true;
+      return _normalizeSearchText(
+        '${item.title} ${item.organizer}',
+      ).contains(query);
     }).toList();
+    if (_filter == ActivityFilter.planned) {
+      filtered.sort((a, b) {
+        final aDate = _parseFlexibleDate(a.date);
+        final bDate = _parseFlexibleDate(b.date);
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return aDate.compareTo(bDate);
+      });
+    }
 
     return ListView(
       key: const PageStorageKey('activities-scroll'),
@@ -4916,8 +6441,9 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
           style: TextStyle(color: Colors.blueGrey.shade600),
         ),
         const SizedBox(height: 20),
-        const TextField(
-          decoration: InputDecoration(
+        TextField(
+          onChanged: (value) => setState(() => _query = value),
+          decoration: const InputDecoration(
             hintText: '研修会名・主催者で検索',
             prefixIcon: Icon(Icons.search_rounded),
           ),
@@ -4931,6 +6457,13 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                 label: const Text('すべて'),
                 selected: _filter == ActivityFilter.all,
                 onSelected: (_) => setState(() => _filter = ActivityFilter.all),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('参加予定'),
+                selected: _filter == ActivityFilter.planned,
+                onSelected: (_) =>
+                    setState(() => _filter = ActivityFilter.planned),
               ),
               const SizedBox(width: 8),
               FilterChip(
@@ -4959,7 +6492,10 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             const Spacer(),
             const Icon(Icons.sort_rounded, size: 19, color: Colors.blueGrey),
             const SizedBox(width: 4),
-            const Text('新しい順', style: TextStyle(color: Colors.blueGrey)),
+            Text(
+              _filter == ActivityFilter.planned ? '開催日順' : '新しい順',
+              style: const TextStyle(color: Colors.blueGrey),
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -4979,20 +6515,26 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
 
 class _ActivityData {
   const _ActivityData({
+    required this.id,
     required this.title,
     required this.date,
     required this.organizer,
     required this.status,
     required this.credits,
     this.needsReview = false,
+    this.eventUrl = '',
+    this.qualificationNames = '',
   });
 
+  final String id;
   final String title;
   final String date;
   final String organizer;
   final String status;
   final String credits;
   final bool needsReview;
+  final String eventUrl;
+  final String qualificationNames;
 }
 
 class _ActivityCard extends StatelessWidget {
@@ -5004,6 +6546,17 @@ class _ActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isConfirmed = activity.status == '確定';
+    final isPlanned = activity.status == '参加予定';
+    final foreground = isConfirmed
+        ? _primary
+        : isPlanned
+        ? _ink
+        : _warning;
+    final background = isConfirmed
+        ? const Color(0xFFE5F2EF)
+        : isPlanned
+        ? const Color(0xFFEAF0F4)
+        : const Color(0xFFFFF0DC);
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -5018,7 +6571,7 @@ class _ActivityCard extends StatelessWidget {
               ),
             );
           } else {
-            _showActivitySheet(context, activity);
+            _showActivitySheet(context, activity, controller);
           }
         },
         child: Padding(
@@ -5029,11 +6582,11 @@ class _ActivityCard extends StatelessWidget {
               _IconTile(
                 icon: isConfirmed
                     ? Icons.description_outlined
+                    : isPlanned
+                    ? Icons.event_available_outlined
                     : Icons.pending_actions_outlined,
-                color: isConfirmed ? _primary : _warning,
-                background: isConfirmed
-                    ? const Color(0xFFE5F2EF)
-                    : const Color(0xFFFFF0DC),
+                color: foreground,
+                background: background,
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -5055,10 +6608,8 @@ class _ActivityCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         _StatusChip(
                           label: activity.status,
-                          foreground: isConfirmed ? _primary : _warning,
-                          background: isConfirmed
-                              ? const Color(0xFFE5F2EF)
-                              : const Color(0xFFFFF0DC),
+                          foreground: foreground,
+                          background: background,
                         ),
                       ],
                     ),
@@ -5074,7 +6625,7 @@ class _ActivityCard extends StatelessWidget {
                     Text(
                       activity.credits,
                       style: TextStyle(
-                        color: isConfirmed ? _primary : _warning,
+                        color: foreground,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -5097,9 +6648,16 @@ class _ActivityCard extends StatelessWidget {
 }
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.controller});
+  const SettingsScreen({
+    super.key,
+    required this.controller,
+    this.authService,
+    this.authUser,
+  });
 
   final AppController controller;
+  final AuthService? authService;
+  final AuthUser? authUser;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -5109,6 +6667,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _deadlineNotifications;
   late bool _missingNotifications;
   late bool _deviceLock;
+  String? _busyAction;
 
   @override
   void initState() {
@@ -5129,6 +6688,147 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  String _formatDateTime(DateTime value) {
+    final local = value.toLocal();
+    String two(int number) => number.toString().padLeft(2, '0');
+    return '${local.year}/${two(local.month)}/${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _runCloudAction(
+    String action,
+    Future<String> Function() operation,
+  ) async {
+    if (_busyAction != null) return;
+    setState(() => _busyAction = action);
+    try {
+      _showMessage(await operation());
+    } on CloudApiException catch (error) {
+      _showMessage(error.message);
+    } on AuthException catch (error) {
+      _showMessage(error.message);
+    } on Object {
+      _showMessage('処理を完了できませんでした。通信環境を確認してもう一度お試しください。');
+    } finally {
+      if (mounted) setState(() => _busyAction = null);
+    }
+  }
+
+  Future<void> _syncNow() => _runCloudAction('sync', () async {
+    await widget.controller.syncNow();
+    final error = widget.controller.syncError;
+    if (error != null) throw CloudApiException('sync_failed', error);
+    return 'クラウドと同期しました。';
+  });
+
+  Future<void> _createBackup() => _runCloudAction('backup', () async {
+    final backup = await widget.controller.createCloudBackup();
+    return '${_formatDateTime(backup.createdAt)} のバックアップを作成しました。';
+  });
+
+  Future<void> _restoreBackup() async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('最新のバックアップを復元しますか？'),
+        content: const Text('現在の資格・実績は、バックアップ作成時点の内容に置き換わります。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('復元する'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true) return;
+    await _runCloudAction('restore', () async {
+      final backup = await widget.controller.restoreLatestCloudBackup();
+      return '${_formatDateTime(backup.createdAt)} のバックアップを復元しました。';
+    });
+  }
+
+  Future<void> _enableWebPush() => _runCloudAction('push', () async {
+    await widget.controller.enableWebPush();
+    return 'この端末で更新期限のWeb通知を受け取れます。';
+  });
+
+  Future<void> _deleteAccount() async {
+    final authService = widget.authService;
+    if (authService == null) return;
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('アカウントとデータを削除しますか？'),
+        content: const Text('資格・実績・参加証・バックアップをクラウドから完全に削除します。この操作は取り消せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _danger),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('完全に削除'),
+          ),
+        ],
+      ),
+    );
+    if (approved != true) return;
+    await _runCloudAction('delete', () async {
+      await widget.controller.deleteAccountAndData(authService);
+      return 'アカウントと保存データを削除しました。';
+    });
+  }
+
+  String get _syncSubtitle {
+    if (widget.controller.isSyncing) return '同期しています…';
+    final error = widget.controller.syncError;
+    if (error != null) return '未同期：$error';
+    final lastSynced = widget.controller.lastSyncedAt;
+    if (lastSynced != null) return '最終同期：${_formatDateTime(lastSynced)}';
+    return widget.controller.cloudConnected ? '同期の準備ができています' : 'クラウド未接続';
+  }
+
+  Future<void> _confirmSignOut() async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ログアウトしますか？'),
+        content: const Text('クラウド上の資格・実績データは削除されません。次回ログイン時に再同期できます。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ログアウト'),
+          ),
+        ],
+      ),
+    );
+    if (shouldSignOut != true) return;
+    try {
+      await widget.authService?.signOut();
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ログアウトできませんでした。もう一度お試しください')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -5142,6 +6842,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: TextStyle(color: Colors.blueGrey.shade600),
         ),
         const SizedBox(height: 22),
+        if (widget.authUser != null) ...[
+          const _SettingsHeading('アカウント'),
+          const SizedBox(height: 10),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: _AccountAvatar(user: widget.authUser!),
+                  title: Text(
+                    widget.authUser!.displayName?.trim().isNotEmpty == true
+                        ? widget.authUser!.displayName!
+                        : 'ログイン中',
+                    style: const TextStyle(
+                      color: _ink,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  subtitle: widget.authUser!.email == null
+                      ? null
+                      : Text(widget.authUser!.email!),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  key: const ValueKey('cloud-sync'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  leading: Icon(
+                    widget.controller.syncError == null
+                        ? Icons.cloud_done_outlined
+                        : Icons.cloud_off_outlined,
+                    color: widget.controller.syncError == null
+                        ? _primary
+                        : _warning,
+                  ),
+                  title: const Text(
+                    'クラウド同期',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(_syncSubtitle),
+                  trailing: _busyAction == 'sync'
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sync_rounded),
+                  onTap: _busyAction == null ? _syncNow : null,
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  key: const ValueKey('sign-out'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  leading: const Icon(Icons.logout_rounded, color: _danger),
+                  title: const Text(
+                    'ログアウト',
+                    style: TextStyle(
+                      color: _danger,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  onTap: _confirmSignOut,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 26),
+        ],
         Card(
           child: ListTile(
             contentPadding: const EdgeInsets.all(16),
@@ -5157,7 +6929,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                '${widget.controller.snapshot.qualifications.length}件の資格を端末内に保存',
+                widget.controller.cloudConnected
+                    ? '${widget.controller.snapshot.qualifications.length}件の資格を暗号化通信で同期'
+                    : '${widget.controller.snapshot.qualifications.length}件の資格をこの端末に保存',
               ),
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
@@ -5196,6 +6970,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 subtitle: const Text('確認待ちが続いたときに通知'),
               ),
+              if (widget.controller.webPushSupported) ...[
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  leading: const Icon(
+                    Icons.notifications_active_outlined,
+                    color: _primary,
+                  ),
+                  title: const Text(
+                    'この端末でWeb通知を有効化',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text('ブラウザの許可画面が表示されます'),
+                  trailing: _busyAction == 'push'
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.chevron_right_rounded),
+                  onTap: _busyAction == null ? _enableWebPush : null,
+                ),
+              ],
             ],
           ),
         ),
@@ -5208,16 +7007,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsTile(
                 icon: Icons.cloud_upload_outlined,
                 title: 'バックアップを作成',
-                subtitle: '前回：2026年8月20日',
-                onTap: () =>
-                    _showPrototypeMessage(context, 'バックアップ作成前の確認画面を表示します'),
+                subtitle: '現在の資格・実績・設定をクラウドに保管',
+                onTap: _createBackup,
               ),
               const Divider(height: 1, indent: 72),
               _SettingsTile(
                 icon: Icons.restore_rounded,
                 title: 'バックアップから復元',
-                onTap: () =>
-                    _showPrototypeMessage(context, '現在のデータを退避してから復元します'),
+                subtitle: '最新のバックアップを使用',
+                onTap: _restoreBackup,
               ),
               const Divider(height: 1, indent: 72),
               _SettingsTile(
@@ -5226,6 +7024,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () =>
                     _showPrototypeMessage(context, '資格・条件・実績・割当をCSVにします'),
               ),
+              if (widget.authService != null &&
+                  widget.controller.cloudConnected) ...[
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  key: const ValueKey('delete-account'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  leading: const Icon(
+                    Icons.delete_forever_outlined,
+                    color: _danger,
+                  ),
+                  title: const Text(
+                    'アカウントと全データを削除',
+                    style: TextStyle(
+                      color: _danger,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: const Text('参加証とバックアップも完全に削除'),
+                  trailing: _busyAction == 'delete'
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.chevron_right_rounded),
+                  onTap: _busyAction == null ? _deleteAccount : null,
+                ),
+              ],
             ],
           ),
         ),
@@ -5261,7 +7089,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 22),
         const Center(
           child: Text(
-            '資格更新ノート  iPhone MVP v1.0',
+            '資格更新ノート  PWA v1.0',
             style: TextStyle(color: Colors.blueGrey, fontSize: 12),
           ),
         ),
@@ -5284,6 +7112,30 @@ class _SettingsHeading extends StatelessWidget {
         fontSize: 17,
         fontWeight: FontWeight.w800,
       ),
+    );
+  }
+}
+
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({required this.user});
+
+  final AuthUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayName = user.displayName?.trim();
+    final email = user.email?.trim();
+    final initialSource = displayName?.isNotEmpty == true
+        ? displayName!
+        : email;
+    final initial = initialSource?.isNotEmpty == true
+        ? initialSource!.substring(0, 1).toUpperCase()
+        : 'U';
+    return CircleAvatar(
+      radius: 23,
+      backgroundColor: const Color(0xFFE5F2EF),
+      foregroundColor: _primary,
+      child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w800)),
     );
   }
 }
@@ -5502,7 +7354,11 @@ Future<void> _openOfficialSource(BuildContext context, String sourceUrl) async {
   }
 }
 
-void _showActivitySheet(BuildContext context, _ActivityData activity) {
+void _showActivitySheet(
+  BuildContext context,
+  _ActivityData activity,
+  AppController controller,
+) {
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -5518,15 +7374,35 @@ void _showActivitySheet(BuildContext context, _ActivityData activity) {
             '${activity.date} ・ ${activity.organizer}',
             style: const TextStyle(color: Colors.blueGrey),
           ),
-          const SizedBox(height: 18),
-          const _SettingsTile(
-            icon: Icons.image_outlined,
-            title: '証明書画像を見る',
-            onTap: _noop,
+          const SizedBox(height: 8),
+          Text(
+            '${activity.status} ・ ${activity.credits}',
+            style: const TextStyle(
+              color: _primary,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-          const _SettingsTile(
+          const SizedBox(height: 18),
+          if (activity.eventUrl.isNotEmpty)
+            _SettingsTile(
+              icon: Icons.open_in_new_rounded,
+              title: '学会・イベントサイトを開く',
+              subtitle: activity.eventUrl,
+              onTap: () =>
+                  unawaited(_openActivityEvent(context, activity.eventUrl)),
+            ),
+          if (activity.status != '参加予定')
+            const _SettingsTile(
+              icon: Icons.image_outlined,
+              title: '証明書画像を見る',
+              onTap: _noop,
+            ),
+          _SettingsTile(
             icon: Icons.account_tree_outlined,
             title: '資格への割当を見る',
+            subtitle: activity.qualificationNames.isEmpty
+                ? '割当なし'
+                : activity.qualificationNames,
             onTap: _noop,
           ),
           const _SettingsTile(
@@ -5534,10 +7410,50 @@ void _showActivitySheet(BuildContext context, _ActivityData activity) {
             title: '変更履歴を見る',
             onTap: _noop,
           ),
+          if (activity.status == '参加予定') ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => unawaited(
+                _confirmPlannedActivity(context, activity.id, controller),
+              ),
+              icon: const Icon(Icons.check_circle_outline_rounded),
+              label: const Text('参加済みにしてポイントを確定'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+              ),
+            ),
+          ],
         ],
       ),
     ),
   );
+}
+
+Future<void> _confirmPlannedActivity(
+  BuildContext context,
+  String activityId,
+  AppController controller,
+) async {
+  final activity = controller.snapshot.activities
+      .where((item) => item.id == activityId)
+      .firstOrNull;
+  if (activity == null) return;
+  await controller.updateActivity(activity.copyWith(status: '確定'));
+  if (!context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  Navigator.pop(context);
+  messenger.showSnackBar(const SnackBar(content: Text('予定ポイントを現在ポイントへ移しました')));
+}
+
+Future<void> _openActivityEvent(BuildContext context, String value) async {
+  final uri = Uri.tryParse(value.contains('://') ? value : 'https://$value');
+  final opened =
+      uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!opened && context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('学会・イベントサイトを開けませんでした')));
+  }
 }
 
 void _showCreditBreakdownDetail(
@@ -5586,49 +7502,51 @@ void _showCreditBreakdownDetail(
               style: const TextStyle(color: Colors.blueGrey),
             ),
             const SizedBox(height: 22),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: _ink,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.badge_outlined, color: Color(0xFFBFD0DC)),
-                      SizedBox(width: 8),
-                      Text(
-                        '認定ID（10桁）',
-                        style: TextStyle(
-                          color: Color(0xFFBFD0DC),
-                          fontWeight: FontWeight.w700,
+            if (entry.certificationId.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: _ink,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.badge_outlined, color: Color(0xFFBFD0DC)),
+                        SizedBox(width: 8),
+                        Text(
+                          '認定ID（10桁）',
+                          style: TextStyle(
+                            color: Color(0xFFBFD0DC),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SelectableText(
-                    entry.certificationId,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      letterSpacing: 2.4,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: [FontFeature.tabularFigures()],
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 9),
-                  const Text(
-                    '参加証・会員マイページとの照合に使用します',
-                    style: TextStyle(color: Color(0xFFD8E2E9), fontSize: 13),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    SelectableText(
+                      entry.certificationId,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        letterSpacing: 2.4,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    const Text(
+                      '参加証・会員マイページとの照合に使用します',
+                      style: TextStyle(color: Color(0xFFD8E2E9), fontSize: 13),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
+            ],
             Card(
               child: Column(
                 children: [

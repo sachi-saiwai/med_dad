@@ -11,6 +11,7 @@ const migrationFiles = [
   '002_rule_review_audit.sql',
   '003_renewal_year_scope.sql',
   '004_source_rule_role.sql',
+  '005_user_cloud_data.sql',
 ];
 
 for (const filename of migrationFiles) {

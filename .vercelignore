@@ -1,0 +1,31 @@
+.git/
+.dart_tool/
+.idea/
+.vscode/
+node_modules/
+coverage/
+
+# Keep build/web, but exclude Flutter's non-web build caches and native output.
+build/*.dill
+build/[0-9a-f]*/
+build/app/
+build/flutter_assets/
+build/host/
+build/ios/
+build/native_assets/
+build/native_hooks/
+build/reports/
+build/test_cache/
+build/unit_test_assets/
+
+# Local-only configuration and platform build inputs.
+.env
+.env.*
+config/firebase.web.json
+android/
+ios/
+linux/
+macos/
+windows/
+test/
+server-tests/

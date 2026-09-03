@@ -3,6 +3,7 @@ import { put } from '@vercel/blob';
 
 import { blobToken } from './config.js';
 import { db } from './db.js';
+import { analyzeDocumentChange } from './document-change.js';
 import {
   extractDocument,
   linksForDiscovery,
@@ -165,6 +166,21 @@ const syncOne = async (
 
   const extracted = await extractDocument(fetched.bytes, fetched.contentType, fetched.finalUrl);
   extracted.title ??= source.title;
+  const previousRows = (await db().query(
+    `SELECT id, extracted_text
+       FROM source_snapshots
+      WHERE source_document_id = $1
+      ORDER BY checked_at DESC, id DESC
+      LIMIT 1`,
+    [source.id],
+  )) as unknown as Array<{ id: string; extracted_text: string | null }>;
+  const previous = previousRows[0];
+  const changeAnalysis = await analyzeDocumentChange({
+    sourceTitle: extracted.title || source.title,
+    previousText: previous?.extracted_text || undefined,
+    currentText: extracted.text,
+    previousSnapshotId: previous?.id,
+  });
   const extension = contentExtension(fetched.contentType, fetched.finalUrl);
   const blobPath = `official-sources/${source.id}/${sha256}.${extension}`;
   const stored = await put(blobPath, fetched.bytes, {
@@ -197,6 +213,7 @@ const syncOne = async (
         pageCount: extracted.pageCount,
         finalUrl: fetched.finalUrl,
         discoveredLinkCount: extracted.links.length,
+        changeAnalysis,
       }),
     ],
   );
@@ -213,6 +230,11 @@ const syncOne = async (
   await discoverDocuments(source, extracted);
 
   if (!source.qualification_id || !source.proposes_rule) {
+    return { changed: true, ruleProposed: false };
+  }
+  // A raw document hash can change because of metadata or markup even when the
+  // normalized official text does not. Do not create a duplicate review task.
+  if (!changeAnalysis.isInitial && changeAnalysis.significance === 'none') {
     return { changed: true, ruleProposed: false };
   }
 

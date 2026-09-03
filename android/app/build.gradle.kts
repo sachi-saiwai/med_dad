@@ -6,11 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "com.example.medlicense"
+    namespace = "jp.sachikosaga.medlicense"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -20,10 +21,10 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.medlicense"
+        applicationId = "jp.sachikosaga.medlicense"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // ML Kit Text Recognition v2 requires Android API 23 or newer.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -41,4 +42,10 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Japanese and Latin text recognition runs locally on the device.
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
 }

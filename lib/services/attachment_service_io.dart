@@ -50,6 +50,23 @@ class IoAttachmentService implements AttachmentService {
     final saved = await source.copy(
       path.join(attachmentDirectory.path, fileName),
     );
-    return PickedAttachment(displayName: originalName, path: saved.path);
+    return PickedAttachment(
+      displayName: originalName,
+      path: saved.path,
+      bytes: await saved.readAsBytes(),
+      contentType: _contentTypeFor(originalName),
+    );
   }
+}
+
+String _contentTypeFor(String fileName) {
+  final extension = path.extension(fileName).toLowerCase();
+  return switch (extension) {
+    '.pdf' => 'application/pdf',
+    '.png' => 'image/png',
+    '.webp' => 'image/webp',
+    '.heic' => 'image/heic',
+    '.heif' => 'image/heif',
+    _ => 'image/jpeg',
+  };
 }

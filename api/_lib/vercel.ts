@@ -9,5 +9,6 @@ export interface ApiResponse {
   setHeader(name: string, value: string | number | readonly string[]): this;
   status(code: number): this;
   json(value: unknown): this;
-  end(): this;
+  send(value: unknown): this;
+  end(value?: unknown): this;
 }

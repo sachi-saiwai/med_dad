@@ -22,7 +22,11 @@
     evidenceSearch: $('evidence-search'), sourceExcerpt: $('source-excerpt'), publish: $('publish-button'),
     reject: $('reject-button'), ruleForm: $('rule-form'), dialog: $('confirm-dialog'),
     dialogIcon: $('dialog-icon'), dialogTitle: $('dialog-title'), dialogMessage: $('dialog-message'),
-    dialogConfirm: $('dialog-confirm'),
+    dialogConfirm: $('dialog-confirm'), changeAnalysisCard: $('change-analysis-card'),
+    changeSignificance: $('change-significance'), changeSummary: $('change-summary'),
+    changeCounts: $('change-counts'), changeList: $('change-list'),
+    changeReviewWrap: $('change-review-wrap'), changeReviewPoints: $('change-review-points'),
+    changeWarningWrap: $('change-warning-wrap'), changeWarningList: $('change-warning-list'),
   };
 
   const state = {
@@ -124,7 +128,10 @@
       }
       const source = document.createElement('p'); source.textContent = rule.source_title;
       const meta = document.createElement('p');
-      meta.textContent = `信頼度 ${Math.round(Number(rule.confidence || 0) * 100)}% ・ ${formatDate(rule.checked_at)}`;
+      const change = rule.extraction_metadata?.changeAnalysis?.significance;
+      const changeText = change && change !== 'none'
+        ? ` ・ 変更 ${change === 'high' ? '重要' : change === 'medium' ? '要確認' : '軽微'}` : '';
+      meta.textContent = `信頼度 ${Math.round(Number(rule.confidence || 0) * 100)}% ・ ${formatDate(rule.checked_at)}${changeText}`;
       button.append(top, source, meta);
       button.addEventListener('click', () => selectRule(rule.id));
       elements.queueList.append(button);
@@ -155,6 +162,67 @@
   const confidenceClass = (confidence) => confidence >= 0.75
     ? 'confidence-high' : confidence >= 0.5 ? 'confidence-medium' : 'confidence-low';
 
+  const changeLabels = {
+    none: '実質変更なし', low: '軽微', medium: '要確認', high: '重要',
+  };
+
+  const appendTextList = (container, values) => {
+    container.replaceChildren();
+    values.forEach((value) => {
+      const item = document.createElement('li');
+      item.textContent = String(value); container.append(item);
+    });
+  };
+
+  const renderChangeAnalysis = (rule) => {
+    const analysis = rule.extraction_metadata?.changeAnalysis;
+    elements.changeAnalysisCard.hidden = !analysis;
+    if (!analysis) return;
+    const significance = ['none', 'low', 'medium', 'high'].includes(analysis.significance)
+      ? analysis.significance : 'medium';
+    elements.changeSignificance.className = `change-significance significance-${significance}`;
+    elements.changeSignificance.textContent = changeLabels[significance];
+    elements.changeSummary.textContent = analysis.summary || '変更内容の要約はありません。';
+    elements.changeCounts.textContent = analysis.isInitial
+      ? '初回取得（比較対象なし）'
+      : `追加 ${Number(analysis.addedLineCount || 0)}行 ／ 削除 ${Number(analysis.removedLineCount || 0)}行`;
+    elements.changeList.replaceChildren();
+    const changes = Array.isArray(analysis.changes) ? analysis.changes : [];
+    changes.forEach((change) => {
+      const item = document.createElement('article'); item.className = 'change-item';
+      const heading = document.createElement('div'); heading.className = 'change-item-heading';
+      const category = document.createElement('strong'); category.textContent = change.category || 'その他';
+      const importance = document.createElement('span');
+      const importanceValue = ['low', 'medium', 'high'].includes(change.importance) ? change.importance : 'medium';
+      importance.className = `change-importance significance-${importanceValue}`;
+      importance.textContent = changeLabels[importanceValue]; heading.append(category, importance); item.append(heading);
+      if (change.before) {
+        const before = document.createElement('p'); before.className = 'change-before';
+        before.textContent = `− ${change.before}`; item.append(before);
+      }
+      if (change.after) {
+        const after = document.createElement('p'); after.className = 'change-after';
+        after.textContent = `＋ ${change.after}`; item.append(after);
+      }
+      if (change.explanation) {
+        const explanation = document.createElement('p'); explanation.className = 'change-explanation';
+        explanation.textContent = change.explanation; item.append(explanation);
+      }
+      elements.changeList.append(item);
+    });
+    if (changes.length === 0) {
+      const empty = document.createElement('p'); empty.className = 'inline-empty';
+      empty.textContent = analysis.isInitial ? '次回取得時から差分を表示します。' : '更新条件に関わる差分は見つかりませんでした。';
+      elements.changeList.append(empty);
+    }
+    const reviewPoints = Array.isArray(analysis.reviewPoints) ? analysis.reviewPoints : [];
+    elements.changeReviewWrap.hidden = reviewPoints.length === 0;
+    appendTextList(elements.changeReviewPoints, reviewPoints);
+    const warnings = Array.isArray(analysis.warnings) ? analysis.warnings : [];
+    elements.changeWarningWrap.hidden = warnings.length === 0;
+    appendTextList(elements.changeWarningList, warnings);
+  };
+
   const selectRule = (id) => {
     const rule = state.rules.find((item) => String(item.id) === String(id));
     if (!rule) return;
@@ -168,6 +236,7 @@
     elements.qualificationName.textContent = rule.qualification_name;
     elements.sourceTitle.textContent = rule.source_title;
     elements.sourceLink.href = rule.source_url;
+    renderChangeAnalysis(rule);
     const warnings = Array.isArray(data.warnings) ? data.warnings : [];
     elements.warnings.hidden = warnings.length === 0; elements.warningList.replaceChildren();
     warnings.forEach((warning) => { const item = document.createElement('li'); item.textContent = warning; elements.warningList.append(item); });

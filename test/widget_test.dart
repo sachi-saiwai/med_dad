@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:medlicense/data/app_state.dart';
 import 'package:medlicense/med_license_app.dart';
 import 'package:medlicense/services/official_rule_service.dart';
 
@@ -11,6 +12,45 @@ void main() {
     await tester.tap(find.text('サンプルデータで見る'));
     await tester.pumpAndSettle();
   }
+
+  test('stored qualification uses only allocated real activities', () {
+    const qualification = StoredQualification(
+      id: 'qualification-1',
+      name: '内科専門医',
+      organization: '日本内科学会',
+      licenseNumber: 'CERT-1',
+      memberId: 'MEMBER-1',
+      deadline: '2028/03/31',
+    );
+    const snapshot = AppSnapshot(
+      qualifications: [qualification],
+      activities: [
+        StoredActivity(
+          id: 'real-activity',
+          title: '実際に登録した講習',
+          date: '2026/09/01',
+          organizer: '日本内科学会',
+          status: '確定',
+          credits: 2,
+          source: '手入力',
+          createdAt: '2026-09-01T00:00:00.000',
+          allocations: [
+            StoredActivityAllocation(
+              qualificationId: 'qualification-1',
+              credits: 2,
+              category: '共通講習',
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final result = qualificationFromStored(qualification, snapshot);
+    expect(result.total, 2);
+    expect(result.creditEntries, hasLength(1));
+    expect(result.creditEntries.single.title, '実際に登録した講習');
+    expect(result.creditEntries.single.certificationId, isEmpty);
+  });
 
   test('surgical qualification catalog contains verified specialties', () {
     final organizationsByName = {
@@ -313,6 +353,7 @@ void main() {
 
     expect(find.text('登録方法を選んでください'), findsOneWidget);
     expect(find.text('写真から選ぶ'), findsOneWidget);
+    expect(find.text('参加予定を登録'), findsOneWidget);
 
     await tester.tap(find.text('写真から選ぶ'));
     await tester.pumpAndSettle();
@@ -413,6 +454,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('承認済みの公式条件'),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('承認済みの公式条件'), findsOneWidget);
     expect(find.text('必要総単位 50単位'), findsOneWidget);
     await tester.scrollUntilVisible(

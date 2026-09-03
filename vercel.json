@@ -11,6 +11,22 @@
     "api/admin/sync.ts": {
       "maxDuration": 60,
       "includeFiles": "node_modules/pdf-parse/lib/pdf.js/**"
+    },
+    "api/cron/reminders.ts": {
+      "maxDuration": 60
+    },
+    "api/v1/account.ts": {
+      "maxDuration": 30
+    },
+    "api/v1/attachments.ts": {
+      "maxDuration": 30
+    },
+    "api/v1/backups.ts": {
+      "maxDuration": 30
+    },
+    "api/v1/certificate-extraction.ts": {
+      "maxDuration": 30,
+      "includeFiles": "node_modules/pdf-parse/lib/pdf.js/**"
     }
   },
   "rewrites": [
@@ -19,10 +35,38 @@
       "destination": "/admin.html"
     }
   ],
+  "headers": [
+    {
+      "source": "/service_worker.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/sync?limit=5",
       "schedule": "0 18 * * 0"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "0 0 * * *"
     }
   ]
 }

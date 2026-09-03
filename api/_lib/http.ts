@@ -1,4 +1,4 @@
-import { UnauthorizedError } from './config.js';
+import { HttpError, UnauthorizedError } from './config.js';
 import type { ApiRequest, ApiResponse } from './vercel.js';
 
 export const publicCors = (response: ApiResponse): void => {
@@ -7,6 +7,19 @@ export const publicCors = (response: ApiResponse): void => {
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   // Published rule changes should be visible to the app immediately after an
   // administrator approves them.
+  response.setHeader('Cache-Control', 'no-store');
+};
+
+export const userCors = (response: ApiResponse): void => {
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET, POST, PUT, DELETE, OPTIONS',
+  );
+  response.setHeader(
+    'Access-Control-Allow-Headers',
+    'Authorization, Content-Type, If-None-Match',
+  );
   response.setHeader('Cache-Control', 'no-store');
 };
 
@@ -29,6 +42,13 @@ export const sendError = (
 ): ApiResponse => {
   if (error instanceof UnauthorizedError) {
     return response.status(401).json({ error: 'unauthorized' });
+  }
+
+  if (error instanceof HttpError) {
+    return response.status(error.statusCode).json({
+      error: error.code,
+      message: error.message,
+    });
   }
 
   const message = error instanceof Error ? error.message : 'Unexpected error';

@@ -9,11 +9,18 @@ const requiredOneOf = (names: string[]): string => {
 export const databaseUrl = (): string =>
   requiredOneOf(['DATABASE_URL', 'database_DATABASE_URL', 'DATABASE_DATABASE_URL']);
 export const blobToken = (): string => requiredOneOf(['BLOB_READ_WRITE_TOKEN']);
+export const firebaseProjectId = (): string =>
+  requiredOneOf(['FIREBASE_PROJECT_ID']);
 
 export const optionalEnv = (name: string): string | undefined => {
   const value = process.env[name]?.trim();
   return value || undefined;
 };
+
+// Invitation-only access can be restored without deleting invite records or
+// changing the schema. It is intentionally disabled when the flag is absent.
+export const inviteCodeRequired = (): boolean =>
+  optionalEnv('REQUIRE_INVITE_CODE')?.toLowerCase() === 'true';
 
 export const assertCronAuthorization = (authorization?: string): void => {
   const secret = requiredOneOf(['CRON_SECRET']);
@@ -33,5 +40,16 @@ export class UnauthorizedError extends Error {
   constructor() {
     super('Unauthorized');
     this.name = 'UnauthorizedError';
+  }
+}
+
+export class HttpError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly code: string,
+    message?: string,
+  ) {
+    super(message || code);
+    this.name = 'HttpError';
   }
 }
