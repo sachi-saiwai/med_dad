@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
+import 'attachment_compression.dart';
 import 'attachment_service.dart';
 
 AttachmentService createPlatformAttachmentService() => IoAttachmentService();
@@ -28,7 +29,9 @@ class IoAttachmentService implements AttachmentService {
 
     final image = await _imagePicker.pickImage(
       source: source == 'カメラ撮影' ? ImageSource.camera : ImageSource.gallery,
-      imageQuality: 92,
+      maxWidth: attachmentMaxDimension.toDouble(),
+      maxHeight: attachmentMaxDimension.toDouble(),
+      imageQuality: 88,
       requestFullMetadata: false,
     );
     if (image == null) return null;

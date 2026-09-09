@@ -15,6 +15,40 @@ const allowedInlineTypes = new Set([
   'image/gif',
 ]);
 
+interface CertificateAiInput {
+  ocrText: string;
+  inlineData: { mimeType: string; data: string };
+}
+
+export const prepareCertificateAiInput = async (
+  {
+    ocrText,
+    contentType,
+    fileBase64,
+    bytes,
+  }: {
+    ocrText: string;
+    contentType: string;
+    fileBase64: string;
+    bytes: Buffer;
+  },
+  pdfTextExtractor: (bytes: Buffer) => Promise<{ text: string }> = extractPdf,
+): Promise<CertificateAiInput> => {
+  let supplementalText = ocrText;
+  if (!supplementalText && contentType === 'application/pdf') {
+    try {
+      supplementalText = (await pdfTextExtractor(bytes)).text.slice(0, 30_000);
+    } catch {
+      // Scanned, encrypted, or otherwise unparsable PDFs can still be read by
+      // the model from the input_file page images.
+    }
+  }
+  return {
+    ocrText: supplementalText,
+    inlineData: { mimeType: contentType, data: fileBase64 },
+  };
+};
+
 export default async function handler(
   request: ApiRequest,
   response: ApiResponse,
@@ -59,14 +93,14 @@ export default async function handler(
       if (bytes.length === 0 || bytes.length > maxInlineBytes) {
         throw new HttpError(413, 'attachment_too_large');
       }
-      inlineData = {
-        mimeType: contentType,
-        data: body.fileBase64,
-      };
-      if (!ocrText && contentType === 'application/pdf') {
-        ocrText = (await extractPdf(bytes)).text.slice(0, 30_000);
-        if (ocrText.trim()) inlineData = undefined;
-      }
+      const prepared = await prepareCertificateAiInput({
+        ocrText,
+        contentType,
+        fileBase64: body.fileBase64,
+        bytes,
+      });
+      ocrText = prepared.ocrText;
+      inlineData = prepared.inlineData;
     }
     if (!ocrText && !inlineData) {
       throw new HttpError(400, 'certificate_content_required');

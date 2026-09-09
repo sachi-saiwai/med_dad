@@ -260,7 +260,11 @@ ${redactedOcrText.slice(0, 30_000) || '（OCR結果なし。添付文書を直�
       generated.model,
       fallback,
     );
-  } catch {
+  } catch (error) {
+    console.error(
+      'Certificate AI extraction failed',
+      error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+    );
     return {
       ...fallback,
       warnings: [...fallback.warnings, 'AI構造化を利用できなかったため端末内抽出を使用しました'],

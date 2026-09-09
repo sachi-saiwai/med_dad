@@ -51,6 +51,7 @@ export const buildOpenAIJsonRequest = ({
       type: 'input_file',
       filename: inlineData.filename || 'certificate.pdf',
       file_data: `data:application/pdf;base64,${inlineData.data}`,
+      detail: 'high',
     });
   } else if (inlineData && imageTypes.has(inlineData.mimeType)) {
     content.push({

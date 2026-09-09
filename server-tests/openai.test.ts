@@ -69,6 +69,7 @@ test('OpenAI PDF input is sent as an inline file', () => {
     type: 'input_file',
     filename: 'certificate.pdf',
     file_data: 'data:application/pdf;base64,cGRm',
+    detail: 'high',
   });
 });
 

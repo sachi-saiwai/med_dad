@@ -13,7 +13,7 @@ FlutterのiPhone/Webアプリに加えて、Vercel Functions、Neon Postgres、P
 - 実績：検索、参加予定・確定・下書きの状態フィルター
 - 設定：クラウド同期、Web Push、バックアップ・復元、アカウント削除
 
-画像・PDFの参加証は、iOSではVision、AndroidではML Kitを使って端末内OCRし、認証済みAPIからOpenAI Responses APIの構造化出力を使って研修名・開催日・主催者・単位・区分・対象資格を自動入力します。端末内OCRテキストは、氏名・会員番号などラベル付きの個人情報を除外してからOpenAIへ送ります。端末内OCRが使えないWeb版、またはOCRに失敗した場合だけ、3MB以下のPDF/JPEG/PNG/WebPをOpenAIへ送ります。自動入力は誤る可能性があるため、保存前の確認は必須です。OpenAI未設定時は決定論的な文字列抽出へフォールバックします。
+画像・PDFの参加証は、iOSではVision、AndroidではML Kitを使って端末内OCRし、認証済みAPIからOpenAI Responses APIの構造化出力を使って研修名・開催日・主催者・単位・区分・対象資格を自動入力します。端末内OCRテキストは、氏名・会員番号などラベル付きの個人情報を除外してからOpenAIへ送ります。端末内OCRが使えないWeb版、またはOCRに失敗した場合だけ、3MB以下のPDF/JPEG/PNG/WebPをOpenAIへ送ります。スマートフォンで撮った写真はこの上限を超えることが多いため、送信前に長辺2600px・JPEGへ自動で縮小します（端末内OCRには縮小前の原本を使います）。自動入力は誤る可能性があるため、保存前の確認は必須です。OpenAI未設定時は決定論的な文字列抽出へフォールバックします。
 
 学会の資格番号と会員IDは分けて保存できます。会員サイトURLを登録するとアプリから開けますが、パスワードは保存せず、会員サイトとの自動データ連携は学会ごとの公式API・利用規約を確認して段階的に対応します。
 
@@ -76,7 +76,7 @@ flutter build web --release --pwa-strategy=none \
 - Firebase IDトークンをサーバーで署名・発行元・対象プロジェクト・有効期限まで検証
 - Firebaseでメール確認済みのUIDを `app_users` に自動登録（`REQUIRE_INVITE_CODE=true` の場合だけ招待制）
 - 資格・実績・設定をリビジョン付きスナップショットとしてNeonへ同期
-- PDF/JPEG/PNG/WebP/HEIC/HEIFをPrivate Vercel Blobへ保存（1ファイル3MBまで）
+- PDF/JPEG/PNG/WebP/HEIC/HEIFをPrivate Vercel Blobへ保存（1ファイル3MBまで、超える写真は自動縮小）
 - 最新20件のクラウドバックアップを一覧・復元
 - Push購読情報を利用者単位で保存し、期限180・90・30・7日前にVercel Cronから通知
 - アカウント削除時にスナップショット、参加証、バックアップ、Push購読、Firebaseユーザーを削除
@@ -150,6 +150,17 @@ npx web-push generate-vapid-keys
 ```
 
 `db:setup` は利用者データ用テーブルも含むマイグレーションを適用し、Flutter内の資格候補と公式取得元を登録します。繰り返し実行しても既存データは壊しません。
+
+### データ移行の運用
+
+- `npm run db:status`: DBを書き換えず、適用済み・未適用のマイグレーションを確認
+- `npm run db:migrate`: 未適用の `db/migrations/NNN_description.sql` を番号順に一括適用
+- `npm run db:seed`: 資格候補と公式取得元をupsertし、初期データと既存データを最新化
+- `npm run db:setup`: マイグレーション成功後に初期データを同期
+
+マイグレーションは排他ロックを取得した単一トランザクションで実行され、成功時だけ `schema_migrations` にファイル名とSHA-256を記録します。失敗時は未適用分をすべてロールバックします。本番適用済みSQLは編集せず、変更は次の連番ファイルとして追加してください。初回の履歴導入時も既存の001〜005は再実行可能なSQLのため、既存テーブルとデータを保持したまま履歴へ登録されます。本番作業前にはNeonのバックアップまたはブランチを作成してください。
+
+参加証PDFは、サーバーで抽出したテキストを補助情報として使いつつ、元PDFもOpenAI Responses APIの `input_file`（高精細）として渡します。テキスト層のないスキャンPDFやサーバー側で解析できないPDFも、ページ画像を使った構造化へ進みます。`GET /api/health` の `openai` が `configured` であることも確認できます。
 
 ### 招待コードの発行
 

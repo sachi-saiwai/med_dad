@@ -241,7 +241,7 @@ void main() {
     final otherButton = find.byKey(const ValueKey('quick-primary-other'));
     await tester.drag(
       find.byKey(const ValueKey('setup-step-2')),
-      const Offset(0, -240),
+      const Offset(0, -360),
     );
     await tester.pumpAndSettle();
     await tester.tap(otherButton);
@@ -270,7 +270,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.drag(
       find.byKey(const ValueKey('setup-step-2')),
-      const Offset(0, -240),
+      const Offset(0, -360),
     );
     await tester.pumpAndSettle();
 

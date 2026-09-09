@@ -13,12 +13,35 @@ import 'services/certificate_ocr_service.dart';
 import 'services/cloud_data_service.dart';
 import 'services/official_rule_service.dart';
 
-const _ink = Color(0xFF18324A);
-const _primary = Color(0xFF2D6A63);
-const _canvas = Color(0xFFF4F6F2);
-const _line = Color(0xFFDCE3DE);
-const _warning = Color(0xFFE88C32);
-const _danger = Color(0xFFB85042);
+/// 文字色。長文でも疲れにくいよう白背景とのコントラストを高めに取っている。
+const _ink = Color(0xFF152538);
+
+/// 補助テキスト。WCAG AA を満たす濃さにして小さな文字でも読めるようにする。
+const _inkSoft = Color(0xFF55677C);
+const _primary = Color(0xFF1A5FA8);
+const _primaryDark = Color(0xFF124878);
+const _primarySoft = Color(0xFFE4EEF9);
+const _canvas = Color(0xFFF2F5F9);
+const _line = Color(0xFFD7DEE7);
+const _neutralSoft = Color(0xFFEDF1F6);
+const _track = Color(0xFFE3E9F0);
+const _sectionTint = Color(0xFFF4F8FC);
+const _sectionLine = Color(0xFFC7D9EC);
+const _warning = Color(0xFFA85B08);
+const _warningInk = Color(0xFF7A4A0A);
+const _warningSoft = Color(0xFFFDF0DC);
+const _warningStrong = Color(0xFFFBE1BC);
+const _danger = Color(0xFFB3261E);
+const _dangerSoft = Color(0xFFFBE9E7);
+const _success = Color(0xFF1E7A4D);
+const _successSoft = Color(0xFFE3F3E9);
+
+/// 濃紺の面に載せる文字・アクセント色。
+const _onInkMuted = Color(0xFFB8C7D8);
+const _onInkSoft = Color(0xFFDCE6F0);
+const _onInkAccent = Color(0xFF7FB2EA);
+const _accentGold = Color(0xFFFFB84D);
+const _cardShadow = Color(0x14152538);
 const _appleSignInEnabled = bool.fromEnvironment('APPLE_SIGN_IN_ENABLED');
 
 class MedLicenseApp extends StatefulWidget {
@@ -48,8 +71,17 @@ class _MedLicenseAppState extends State<MedLicenseApp> {
       seedColor: _primary,
       brightness: Brightness.light,
       primary: _primary,
+      onPrimary: Colors.white,
+      primaryContainer: _primarySoft,
+      onPrimaryContainer: _primaryDark,
       surface: Colors.white,
+      onSurface: _ink,
+      onSurfaceVariant: _inkSoft,
+      surfaceContainerHighest: _neutralSoft,
+      outline: _line,
+      outlineVariant: _line,
       error: _danger,
+      errorContainer: _dangerSoft,
     );
 
     return ListenableBuilder(
@@ -61,58 +93,140 @@ class _MedLicenseAppState extends State<MedLicenseApp> {
           useMaterial3: true,
           colorScheme: colorScheme,
           scaffoldBackgroundColor: _canvas,
-          fontFamilyFallback: const ['Hiragino Sans', 'Noto Sans JP'],
+          fontFamilyFallback: const [
+            'Hiragino Kaku Gothic ProN',
+            'Hiragino Sans',
+            'Yu Gothic',
+            'Noto Sans JP',
+          ],
           textTheme: const TextTheme(
             headlineMedium: TextStyle(
               color: _ink,
-              fontSize: 28,
-              height: 1.25,
-              fontWeight: FontWeight.w800,
+              fontSize: 27,
+              height: 1.3,
+              fontWeight: FontWeight.w700,
             ),
             titleLarge: TextStyle(
               color: _ink,
-              fontSize: 22,
-              height: 1.3,
-              fontWeight: FontWeight.w800,
+              fontSize: 21,
+              height: 1.35,
+              fontWeight: FontWeight.w700,
             ),
             titleMedium: TextStyle(
               color: _ink,
-              fontSize: 17,
-              height: 1.4,
+              fontSize: 18,
+              height: 1.45,
               fontWeight: FontWeight.w700,
             ),
-            bodyLarge: TextStyle(color: _ink, fontSize: 16, height: 1.55),
-            bodyMedium: TextStyle(color: _ink, fontSize: 14, height: 1.5),
-            labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            bodyLarge: TextStyle(color: _ink, fontSize: 17, height: 1.6),
+            bodyMedium: TextStyle(color: _ink, fontSize: 15, height: 1.6),
+            bodySmall: TextStyle(color: _inkSoft, fontSize: 14, height: 1.55),
+            labelLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           cardTheme: const CardThemeData(
             color: Colors.white,
-            elevation: 0,
+            elevation: 2,
+            shadowColor: _cardShadow,
+            surfaceTintColor: Colors.transparent,
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(20)),
+              borderRadius: BorderRadius.all(Radius.circular(12)),
               side: BorderSide(color: _line),
             ),
           ),
           filledButtonTheme: FilledButtonThemeData(
             style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 52),
+              minimumSize: const Size(0, 56),
+              elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(10),
               ),
               textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
           outlinedButtonTheme: OutlinedButtonThemeData(
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 48),
-              side: const BorderSide(color: _line),
+              minimumSize: const Size(0, 52),
+              foregroundColor: _primaryDark,
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: _line, width: 1.5),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(10),
               ),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: _primaryDark,
+              minimumSize: const Size(0, 44),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          navigationBarTheme: const NavigationBarThemeData(
+            backgroundColor: Colors.white,
+            elevation: 3,
+            shadowColor: _cardShadow,
+            surfaceTintColor: Colors.transparent,
+            indicatorColor: _primarySoft,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            labelTextStyle: WidgetStatePropertyAll(
+              TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+          ),
+          listTileTheme: const ListTileThemeData(
+            iconColor: _primary,
+            textColor: _ink,
+            subtitleTextStyle: TextStyle(
+              color: _inkSoft,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          dividerTheme: const DividerThemeData(
+            color: _line,
+            thickness: 1,
+            space: 1,
+          ),
+          progressIndicatorTheme: const ProgressIndicatorThemeData(
+            linearTrackColor: _track,
+            linearMinHeight: 10,
+          ),
+          bottomSheetTheme: const BottomSheetThemeData(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            dragHandleColor: _line,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+          ),
+          dialogTheme: const DialogThemeData(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(14)),
+            ),
+          ),
+          snackBarTheme: const SnackBarThemeData(
+            backgroundColor: _ink,
+            contentTextStyle: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              height: 1.5,
+              fontWeight: FontWeight.w600,
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(10)),
             ),
           ),
           inputDecorationTheme: InputDecorationTheme(
@@ -120,15 +234,25 @@ class _MedLicenseAppState extends State<MedLicenseApp> {
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 15,
+              vertical: 17,
+            ),
+            hintStyle: const TextStyle(color: _inkSoft, fontSize: 16),
+            labelStyle: const TextStyle(
+              color: _inkSoft,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: _line),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: _line, width: 1.5),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: _line),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: _line, width: 1.5),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: _primary, width: 2),
             ),
           ),
         ),
@@ -599,8 +723,8 @@ class _SignInScreenState extends State<SignInScreen> {
                       width: 76,
                       height: 76,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE5F2EF),
-                        borderRadius: BorderRadius.circular(24),
+                        color: _primarySoft,
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.workspace_premium_rounded,
@@ -619,7 +743,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   Text(
                     '資格・単位・参加証を、あなたのアカウントで安全に管理します',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.blueGrey.shade600),
+                    style: TextStyle(color: _inkSoft),
                   ),
                   const SizedBox(height: 34),
                   if (!isConfigured) ...[
@@ -693,7 +817,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   const Text(
                     'ログイン情報は本人確認に使用します。資格・実績はクラウド同期し、参加証は非公開ストレージへ保存します。',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.blueGrey, fontSize: 12),
+                    style: TextStyle(color: _inkSoft, fontSize: 13),
                   ),
                 ],
               ),
@@ -2025,7 +2149,7 @@ class _SetupBrand extends StatelessWidget {
           style: TextStyle(
             color: _ink,
             fontSize: 18,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -2056,7 +2180,7 @@ class _SetupProgressIndicator extends StatelessWidget {
                       height: 30,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: active ? _primary : const Color(0xFFE1E6E2),
+                        color: active ? _primary : _track,
                         shape: BoxShape.circle,
                       ),
                       child: step < currentStep
@@ -2068,8 +2192,8 @@ class _SetupProgressIndicator extends StatelessWidget {
                           : Text(
                               '$step',
                               style: TextStyle(
-                                color: active ? Colors.white : Colors.blueGrey,
-                                fontWeight: FontWeight.w800,
+                                color: active ? Colors.white : _inkSoft,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                     ),
@@ -2077,8 +2201,8 @@ class _SetupProgressIndicator extends StatelessWidget {
                     Text(
                       labels[index],
                       style: TextStyle(
-                        color: active ? _ink : Colors.blueGrey,
-                        fontSize: 12,
+                        color: active ? _ink : _inkSoft,
+                        fontSize: 13,
                         fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
@@ -2092,7 +2216,7 @@ class _SetupProgressIndicator extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 25),
                   color: step < currentStep
                       ? _primary
-                      : const Color(0xFFD8DFDA),
+                      : _line,
                 ),
             ],
           ),
@@ -2115,7 +2239,7 @@ class _SetupWelcomePage extends StatelessWidget {
             width: 88,
             height: 88,
             decoration: const BoxDecoration(
-              color: Color(0xFFE1F2ED),
+              color: _primarySoft,
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -2135,7 +2259,7 @@ class _SetupWelcomePage extends StatelessWidget {
         const Text(
           '保有資格・更新期限・必要単位を登録すると、現在の不足状況が分かるようになります。',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.blueGrey, fontSize: 15, height: 1.55),
+          style: TextStyle(color: _inkSoft, fontSize: 15, height: 1.55),
         ),
         const SizedBox(height: 28),
         const _SetupFeatureRow(
@@ -2179,7 +2303,7 @@ class _SetupFeatureRow extends StatelessWidget {
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _line),
       ),
       child: Row(
@@ -2187,7 +2311,7 @@ class _SetupFeatureRow extends StatelessWidget {
           _IconTile(
             icon: icon,
             color: _primary,
-            background: const Color(0xFFE5F2EF),
+            background: _primarySoft,
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -2199,13 +2323,13 @@ class _SetupFeatureRow extends StatelessWidget {
                   style: const TextStyle(
                     color: _ink,
                     fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
+                  style: const TextStyle(color: _inkSoft, fontSize: 14),
                 ),
               ],
             ),
@@ -2224,8 +2348,8 @@ class _SetupPrivacyNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF2E1),
-        borderRadius: BorderRadius.circular(16),
+        color: _warningSoft,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2236,8 +2360,8 @@ class _SetupPrivacyNotice extends StatelessWidget {
             child: Text(
               '患者情報は登録しません。表示結果は自己管理用のため、最終確認は資格団体の公式情報で行ってください。',
               style: TextStyle(
-                color: Color(0xFF77572E),
-                fontSize: 13,
+                color: _warningInk,
+                fontSize: 14,
                 height: 1.5,
               ),
             ),
@@ -2262,12 +2386,12 @@ class _ProfileSetupPage extends StatelessWidget {
         const SizedBox(height: 8),
         const Text(
           'アプリ内での表示に使用します。後から設定画面で変更できます。',
-          style: TextStyle(color: Colors.blueGrey, fontSize: 15, height: 1.5),
+          style: TextStyle(color: _inkSoft, fontSize: 15, height: 1.5),
         ),
         const SizedBox(height: 24),
         const Text(
           'お名前・呼び名',
-          style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+          style: TextStyle(color: _ink, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 7),
         TextField(
@@ -2287,7 +2411,7 @@ class _ProfileSetupPage extends StatelessWidget {
                 const _IconTile(
                   icon: Icons.lock_outline_rounded,
                   color: _primary,
-                  background: Color(0xFFE5F2EF),
+                  background: _primarySoft,
                 ),
                 const SizedBox(width: 13),
                 Expanded(
@@ -2299,15 +2423,15 @@ class _ProfileSetupPage extends StatelessWidget {
                         style: TextStyle(
                           color: _ink,
                           fontSize: 15,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'このMVPでは複数利用者や病院管理者の設定はありません。',
                         style: TextStyle(
-                          color: Colors.blueGrey.shade600,
-                          fontSize: 13,
+                          color: _inkSoft,
+                          fontSize: 14,
                           height: 1.5,
                         ),
                       ),
@@ -2347,7 +2471,7 @@ class _QualificationSetupPage extends StatelessWidget {
         const SizedBox(height: 8),
         const Text(
           '外科・内科は下のボタンからすぐ選べます。それ以外は「その他」から診療分野で検索できます。',
-          style: TextStyle(color: Colors.blueGrey, fontSize: 15, height: 1.5),
+          style: TextStyle(color: _inkSoft, fontSize: 15, height: 1.5),
         ),
         const SizedBox(height: 22),
         ...qualifications.asMap().entries.map(
@@ -2381,7 +2505,7 @@ class _QualificationSetupPage extends StatelessWidget {
             ),
             title: const Text(
               '更新期限のお知らせ',
-              style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+              style: TextStyle(color: _ink, fontWeight: FontWeight.w700),
             ),
             subtitle: const Text('既定：365・180・90・30・7日前'),
           ),
@@ -2390,8 +2514,8 @@ class _QualificationSetupPage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: const Color(0xFFEAF0F4),
-            borderRadius: BorderRadius.circular(16),
+            color: _neutralSoft,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2401,7 +2525,7 @@ class _QualificationSetupPage extends StatelessWidget {
               Expanded(
                 child: Text(
                   '資格を選ぶと、総単位・区分別単位・必須講習などの更新条件を自動設定します。登録後に内容を確認・修正できます。',
-                  style: TextStyle(color: _ink, fontSize: 13, height: 1.5),
+                  style: TextStyle(color: _ink, fontSize: 14, height: 1.5),
                 ),
               ),
             ],
@@ -2578,7 +2702,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                     style: const TextStyle(
                       color: _ink,
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -2596,13 +2720,13 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
               style: TextStyle(
                 color: _ink,
                 fontSize: 14,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 5),
             const Text(
               '当てはまる方を1つ選んでください',
-              style: TextStyle(color: Colors.blueGrey, fontSize: 12),
+              style: TextStyle(color: _inkSoft, fontSize: 13),
             ),
             const SizedBox(height: 10),
             Row(
@@ -2653,7 +2777,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                   padding: EdgeInsets.symmetric(horizontal: 10),
                   child: Text(
                     '資格名・診療分野から検索',
-                    style: TextStyle(color: Colors.blueGrey, fontSize: 12),
+                    style: TextStyle(color: _inkSoft, fontSize: 13),
                   ),
                 ),
                 Expanded(child: Divider()),
@@ -2688,7 +2812,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                   alignment: Alignment.topLeft,
                   child: Material(
                     elevation: 8,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     clipBehavior: Clip.antiAlias,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
@@ -2719,7 +2843,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                                           entry.name,
                                           style: const TextStyle(
                                             color: _ink,
-                                            fontWeight: FontWeight.w800,
+                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
                                       ),
@@ -2729,16 +2853,16 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                                           vertical: 3,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFE5F2EF),
+                                          color: _primarySoft,
                                           borderRadius: BorderRadius.circular(
-                                            999,
+                                            6,
                                           ),
                                         ),
                                         child: Text(
                                           entry.category,
                                           style: const TextStyle(
                                             color: _primary,
-                                            fontSize: 11,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.w700,
                                           ),
                                         ),
@@ -2749,8 +2873,8 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                                   Text(
                                     entry.organization,
                                     style: const TextStyle(
-                                      color: Colors.blueGrey,
-                                      fontSize: 12,
+                                      color: _inkSoft,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ],
@@ -2774,15 +2898,15 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                         Icon(
                           Icons.info_outline_rounded,
                           size: 16,
-                          color: Colors.blueGrey,
+                          color: _inkSoft,
                         ),
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             '候補を選ぶと認定団体と更新条件を自動設定します',
                             style: TextStyle(
-                              color: Colors.blueGrey,
-                              fontSize: 12,
+                              color: _inkSoft,
+                              fontSize: 13,
                             ),
                           ),
                         ),
@@ -2797,7 +2921,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                           '認定団体と更新条件を自動設定しました',
                           style: TextStyle(
                             color: _primary,
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -2897,16 +3021,16 @@ class _PrimaryQualificationButton extends StatelessWidget {
       selected: selected,
       label: '$titleを選択',
       child: Material(
-        color: selected ? const Color(0xFFE1F2ED) : Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        color: selected ? _primarySoft : Colors.white,
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(12),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: selected ? _primary : _line,
                 width: selected ? 2 : 1,
@@ -2919,8 +3043,8 @@ class _PrimaryQualificationButton extends StatelessWidget {
                   height: 34,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: selected ? _primary : const Color(0xFFEAF0ED),
-                    borderRadius: BorderRadius.circular(11),
+                    color: selected ? _primary : _track,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     selected ? Icons.check_rounded : icon,
@@ -2940,15 +3064,15 @@ class _PrimaryQualificationButton extends StatelessWidget {
                         style: const TextStyle(
                           color: _ink,
                           fontSize: 14,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
                         style: const TextStyle(
-                          color: Colors.blueGrey,
-                          fontSize: 11,
+                          color: _inkSoft,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -2982,9 +3106,9 @@ class _SurgicalSubspecialtySection extends StatelessWidget {
       key: const ValueKey('surgical-subspecialty-section'),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F7F5),
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: const Color(0xFFBED8D0)),
+        color: _sectionTint,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _sectionLine),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2994,7 +3118,7 @@ class _SurgicalSubspecialtySection extends StatelessWidget {
               _IconTile(
                 icon: Icons.account_tree_outlined,
                 color: _primary,
-                background: Color(0xFFDDEFE9),
+                background: _primarySoft,
               ),
               SizedBox(width: 11),
               Expanded(
@@ -3006,13 +3130,13 @@ class _SurgicalSubspecialtySection extends StatelessWidget {
                       style: TextStyle(
                         color: _ink,
                         fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     SizedBox(height: 2),
                     Text(
                       '保有している資格を複数選択できます',
-                      style: TextStyle(color: Colors.blueGrey, fontSize: 12),
+                      style: TextStyle(color: _inkSoft, fontSize: 13),
                     ),
                   ],
                 ),
@@ -3039,15 +3163,15 @@ class _SurgicalSubspecialtySection extends StatelessWidget {
               Icon(
                 Icons.info_outline_rounded,
                 size: 16,
-                color: Colors.blueGrey,
+                color: _inkSoft,
               ),
               SizedBox(width: 6),
               Expanded(
                 child: Text(
                   '日本専門医機構の領域一覧に基づく6領域です。更新方法は各団体の公式情報で確認してください。',
                   style: TextStyle(
-                    color: Colors.blueGrey,
-                    fontSize: 11,
+                    color: _inkSoft,
+                    fontSize: 12,
                     height: 1.45,
                   ),
                 ),
@@ -3093,14 +3217,14 @@ class _SubspecialtyChoice extends StatelessWidget {
               style: const TextStyle(
                 color: _ink,
                 fontSize: 14,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
             subtitle: Text(
               entry.organization,
               style: const TextStyle(
-                color: Colors.blueGrey,
-                fontSize: 11,
+                color: _inkSoft,
+                fontSize: 12,
                 height: 1.35,
               ),
             ),
@@ -3225,7 +3349,7 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
       bottomNavigationBar: NavigationBar(
-        height: 72,
+        height: 78,
         selectedIndex: _selectedIndex,
         onDestinationSelected: _selectDestination,
         destinations: const [
@@ -3299,7 +3423,7 @@ class HomeScreen extends StatelessWidget {
               Text(
                 '${DateTime.now().year}年${DateTime.now().month}月${DateTime.now().day}日 現在',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.blueGrey.shade600,
+                  color: _inkSoft,
                 ),
               ),
               const SizedBox(height: 20),
@@ -3374,15 +3498,16 @@ class _TopBar extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 44,
-          height: 44,
+          width: 46,
+          height: 46,
           decoration: BoxDecoration(
             color: _primary,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: const Icon(
             Icons.workspace_premium_outlined,
             color: Colors.white,
+            size: 26,
           ),
         ),
         const SizedBox(width: 12),
@@ -3394,19 +3519,19 @@ class _TopBar extends StatelessWidget {
                 '資格更新ノート',
                 style: TextStyle(
                   color: _ink,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               if (displayName.trim().isNotEmpty)
                 Text(
                   '${displayName.trim()}さんの資格管理',
-                  style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+                  style: const TextStyle(color: _inkSoft, fontSize: 14),
                 ),
               const SizedBox(height: 2),
               const Text(
                 '本人専用',
-                style: TextStyle(color: Colors.blueGrey, fontSize: 13),
+                style: TextStyle(color: _inkSoft, fontSize: 14),
               ),
             ],
           ),
@@ -3415,14 +3540,14 @@ class _TopBar extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
-              color: const Color(0xFFE8F1EF),
-              borderRadius: BorderRadius.circular(99),
+              color: _primarySoft,
+              borderRadius: BorderRadius.circular(6),
             ),
             child: const Text(
               'サンプルデータ',
               style: TextStyle(
-                color: _primary,
-                fontSize: 12,
+                color: _primaryDark,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -3440,11 +3565,14 @@ class _AttentionBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFFFF2E1),
-      borderRadius: BorderRadius.circular(18),
+      color: _warningSoft,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: _warningStrong, width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
         child: const Padding(
           padding: EdgeInsets.all(16),
           child: Row(
@@ -3452,7 +3580,7 @@ class _AttentionBanner extends StatelessWidget {
               _IconTile(
                 icon: Icons.priority_high_rounded,
                 color: _warning,
-                background: Color(0xFFFFE2BD),
+                background: _warningStrong,
               ),
               SizedBox(width: 13),
               Expanded(
@@ -3463,19 +3591,19 @@ class _AttentionBanner extends StatelessWidget {
                       '確認が必要な実績が1件あります',
                       style: TextStyle(
                         color: _ink,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         fontSize: 15,
                       ),
                     ),
                     SizedBox(height: 3),
                     Text(
                       '読み取り内容を確認してください',
-                      style: TextStyle(color: Color(0xFF77572E), fontSize: 13),
+                      style: TextStyle(color: _warningInk, fontSize: 14),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: Color(0xFF77572E)),
+              Icon(Icons.chevron_right_rounded, color: _warningInk),
             ],
           ),
         ),
@@ -3494,10 +3622,10 @@ class _NextDeadlineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       color: _ink,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -3509,20 +3637,20 @@ class _NextDeadlineCard extends StatelessWidget {
                     child: Text(
                       '次の更新期限',
                       style: TextStyle(
-                        color: Color(0xFFBFD0DC),
-                        fontSize: 14,
+                        color: _onInkMuted,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+                      horizontal: 12,
+                      vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .12),
-                      borderRadius: BorderRadius.circular(99),
+                      color: Colors.white.withValues(alpha: .16),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       qualification.remainingDays >= 0
@@ -3530,7 +3658,8 @@ class _NextDeadlineCard extends StatelessWidget {
                           : '${-qualification.remainingDays}日超過',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -3541,22 +3670,23 @@ class _NextDeadlineCard extends StatelessWidget {
                 qualification.name,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 23,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 24,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 5),
               Text(
                 qualification.deadline,
-                style: const TextStyle(color: Color(0xFFD8E2E9), fontSize: 15),
+                style: const TextStyle(color: _onInkSoft, fontSize: 16),
               ),
               const SizedBox(height: 18),
               Row(
                 children: [
                   const Icon(
                     Icons.info_outline_rounded,
-                    color: Color(0xFFFFC36E),
-                    size: 21,
+                    color: _accentGold,
+                    size: 22,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -3564,8 +3694,9 @@ class _NextDeadlineCard extends StatelessWidget {
                       qualification.headline,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        height: 1.5,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -3617,7 +3748,7 @@ class QualificationCard extends StatelessWidget {
     return Card(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: Column(
@@ -3637,14 +3768,15 @@ class QualificationCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '期限 ${qualification.deadline}',
-                          style: TextStyle(
-                            color: Colors.blueGrey.shade600,
-                            fontSize: 13,
+                          style: const TextStyle(
+                            color: _inkSoft,
+                            fontSize: 15,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 10),
                   _StatusChip(
                     label: style.label,
                     foreground: style.foreground,
@@ -3660,16 +3792,17 @@ class QualificationCard extends StatelessWidget {
                       '${qualification.total.toInt()} / ${qualification.requiredTotal.toInt()} 単位',
                       style: const TextStyle(
                         color: _ink,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 19,
                       ),
                     ),
                     const Spacer(),
                     Text(
                       '${(qualification.progress * 100).round()}%',
                       style: const TextStyle(
-                        color: _primary,
-                        fontWeight: FontWeight.w800,
+                        color: _primaryDark,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -3681,8 +3814,8 @@ class QualificationCard extends StatelessWidget {
                       '現在 ${_formatNumber(qualification.total)}単位',
                       style: const TextStyle(
                         color: _ink,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
                       ),
                     ),
                     if (qualification.plannedTotal > 0) ...[
@@ -3696,13 +3829,13 @@ class QualificationCard extends StatelessWidget {
                   ],
                 ),
               if (qualification.requiredTotal > 0) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(99),
                   child: LinearProgressIndicator(
                     value: qualification.progress,
-                    minHeight: 8,
-                    backgroundColor: const Color(0xFFE7ECE9),
+                    minHeight: 10,
+                    backgroundColor: _track,
                     color: style.foreground,
                   ),
                 ),
@@ -3715,7 +3848,7 @@ class QualificationCard extends StatelessWidget {
                         ? Icons.check_circle_outline_rounded
                         : Icons.info_outline_rounded,
                     color: style.foreground,
-                    size: 20,
+                    size: 22,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -3723,14 +3856,15 @@ class QualificationCard extends StatelessWidget {
                       qualification.headline,
                       style: TextStyle(
                         color: style.foreground,
-                        fontSize: 14,
+                        fontSize: 15,
+                        height: 1.45,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   const Icon(
                     Icons.chevron_right_rounded,
-                    color: Colors.blueGrey,
+                    color: _inkSoft,
                   ),
                 ],
               ),
@@ -3750,8 +3884,8 @@ class _OfficialInfoNote extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF0F4),
-        borderRadius: BorderRadius.circular(16),
+        color: _neutralSoft,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3761,7 +3895,7 @@ class _OfficialInfoNote extends StatelessWidget {
           Expanded(
             child: Text(
               'このアプリは自己管理を支援するものです。更新申請前に、必ず資格団体の公式情報をご確認ください。',
-              style: TextStyle(color: _ink, fontSize: 13, height: 1.5),
+              style: TextStyle(color: _ink, fontSize: 14, height: 1.5),
             ),
           ),
         ],
@@ -3921,13 +4055,13 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                 const SizedBox(height: 5),
                 Text(
                   qualification.organization,
-                  style: TextStyle(color: Colors.blueGrey.shade600),
+                  style: TextStyle(color: _inkSoft),
                 ),
                 const SizedBox(height: 20),
                 Card(
                   color: _ink,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
@@ -3950,7 +4084,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                                   backgroundColor: Colors.white.withValues(
                                     alpha: .14,
                                   ),
-                                  color: const Color(0xFF69C0B4),
+                                  color: _onInkAccent,
                                 ),
                               ),
                               Text(
@@ -3958,7 +4092,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
@@ -3972,7 +4106,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                               const Text(
                                 '現在の進捗',
                                 style: TextStyle(
-                                  color: Color(0xFFBFD0DC),
+                                  color: _onInkMuted,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -3982,7 +4116,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 22,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -4049,7 +4183,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                       '${creditEntries.length}件・合計${_formatNumber(creditEntries.fold<double>(0, (sum, entry) => sum + entry.credits))}単位',
                       style: const TextStyle(
                         color: _primary,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -4057,7 +4191,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                 const SizedBox(height: 6),
                 Text(
                   '講習・学会ごとの取得単位を確認できます',
-                  style: TextStyle(color: Colors.blueGrey.shade600),
+                  style: TextStyle(color: _inkSoft),
                 ),
                 const SizedBox(height: 12),
                 if (creditEntries.isEmpty)
@@ -4066,7 +4200,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                       padding: EdgeInsets.all(18),
                       child: Text(
                         'この資格に割り当てられた確定実績はまだありません。',
-                        style: TextStyle(color: Colors.blueGrey),
+                        style: TextStyle(color: _inkSoft),
                       ),
                     ),
                   )
@@ -4099,11 +4233,11 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                         leading: const _IconTile(
                           icon: Icons.receipt_long_outlined,
                           color: _primary,
-                          background: Color(0xFFE5F2EF),
+                          background: _primarySoft,
                         ),
                         title: const Text(
                           '登録済みの実績',
-                          style: TextStyle(fontWeight: FontWeight.w800),
+                          style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                         subtitle: Text('${creditEntries.length}件'),
                         trailing: const Icon(Icons.chevron_right_rounded),
@@ -4121,11 +4255,11 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                         leading: const _IconTile(
                           icon: Icons.policy_outlined,
                           color: _ink,
-                          background: Color(0xFFEAF0F4),
+                          background: _neutralSoft,
                         ),
                         title: const Text(
                           '規定・根拠資料',
-                          style: TextStyle(fontWeight: FontWeight.w800),
+                          style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                         subtitle: Text(
                           qualification.sourceCheckedAt == null
@@ -4205,7 +4339,7 @@ class _OfficialRuleStateCard extends StatelessWidget {
                         : '承認済みの更新条件はまだありません',
                     style: const TextStyle(
                       color: _ink,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -4215,7 +4349,7 @@ class _OfficialRuleStateCard extends StatelessWidget {
                         : failed
                         ? (error ?? '通信状況を確認して再度お試しください。')
                         : '管理画面で公式資料の内容を承認すると、この画面へ自動表示されます。',
-                    style: const TextStyle(color: Colors.blueGrey, height: 1.5),
+                    style: const TextStyle(color: _inkSoft, height: 1.5),
                   ),
                   if (!loading) ...[
                     const SizedBox(height: 10),
@@ -4245,7 +4379,7 @@ class _OfficialRuleSummary extends StatelessWidget {
     final cycle = qualification.renewalCycleYears;
     final total = qualification.requiredTotal;
     return Card(
-      color: const Color(0xFFE5F2EF),
+      color: _primarySoft,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -4259,7 +4393,7 @@ class _OfficialRuleSummary extends StatelessWidget {
                   '承認済みの公式条件',
                   style: TextStyle(
                     color: _primary,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -4303,14 +4437,15 @@ class _RuleFactChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .82),
-        borderRadius: BorderRadius.circular(99),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _line),
       ),
       child: Text(
         label,
         style: const TextStyle(
           color: _ink,
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -4334,7 +4469,7 @@ class _OfficialConditionsCard extends StatelessWidget {
             if (qualification.mandatoryNotes.isNotEmpty) ...[
               const Text(
                 '必須事項',
-                style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+                style: TextStyle(color: _ink, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               ...qualification.mandatoryNotes.map(
@@ -4347,7 +4482,7 @@ class _OfficialConditionsCard extends StatelessWidget {
             if (qualification.otherConditions.isNotEmpty) ...[
               const Text(
                 'その他の条件',
-                style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+                style: TextStyle(color: _ink, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               ...qualification.otherConditions.map(
@@ -4386,7 +4521,7 @@ class _ConditionBullet extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: _ink, fontSize: 13, height: 1.55),
+              style: const TextStyle(color: _ink, fontSize: 14, height: 1.55),
             ),
           ),
         ],
@@ -4412,14 +4547,14 @@ class _DeadlineRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: _line),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           const _IconTile(
             icon: Icons.event_outlined,
             color: _primary,
-            background: Color(0xFFE5F2EF),
+            background: _primarySoft,
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -4428,7 +4563,7 @@ class _DeadlineRow extends StatelessWidget {
               children: [
                 const Text(
                   '次回の更新期限',
-                  style: TextStyle(color: Colors.blueGrey, fontSize: 13),
+                  style: TextStyle(color: _inkSoft, fontSize: 14),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -4436,7 +4571,7 @@ class _DeadlineRow extends StatelessWidget {
                   style: const TextStyle(
                     color: _ink,
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -4449,7 +4584,7 @@ class _DeadlineRow extends StatelessWidget {
                   : '${-qualification.remainingDays}日超過',
               style: const TextStyle(
                 color: _danger,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
         ],
@@ -4477,7 +4612,7 @@ class _PointForecastCard extends StatelessWidget {
               style: TextStyle(
                 color: _ink,
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 14),
@@ -4543,7 +4678,7 @@ class _PointMetric extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+          style: const TextStyle(color: _inkSoft, fontSize: 13),
         ),
         const SizedBox(height: 3),
         Text(
@@ -4551,7 +4686,7 @@ class _PointMetric extends StatelessWidget {
           style: TextStyle(
             color: color,
             fontSize: 18,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -4771,7 +4906,7 @@ class RequirementCard extends StatelessWidget {
                     style: const TextStyle(
                       color: _ink,
                       fontSize: 16,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -4787,7 +4922,7 @@ class RequirementCard extends StatelessWidget {
                   requirement.isComplete
                       ? '達成'
                       : 'あと${_formatNumber(missing)}${requirement.unit}',
-                  style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                  style: TextStyle(color: color, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -4799,8 +4934,8 @@ class RequirementCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(99),
                     child: LinearProgressIndicator(
                       value: requirement.progress,
-                      minHeight: 8,
-                      backgroundColor: const Color(0xFFE7ECE9),
+                      minHeight: 10,
+                      backgroundColor: _track,
                       color: color,
                     ),
                   ),
@@ -4819,7 +4954,7 @@ class RequirementCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 requirement.note!,
-                style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 13),
+                style: TextStyle(color: _inkSoft, fontSize: 14),
               ),
             ],
           ],
@@ -4851,7 +4986,7 @@ class _CreditBreakdownSummary extends StatelessWidget {
             label: '学会・発表',
             value: '${_formatNumber(conferenceCredits)}単位',
             color: _ink,
-            background: const Color(0xFFEAF0F4),
+            background: _neutralSoft,
           ),
         ),
         const SizedBox(width: 10),
@@ -4861,7 +4996,7 @@ class _CreditBreakdownSummary extends StatelessWidget {
             label: '講習',
             value: '${_formatNumber(lectureCredits)}単位',
             color: _primary,
-            background: const Color(0xFFE5F2EF),
+            background: _primarySoft,
           ),
         ),
       ],
@@ -4890,7 +5025,7 @@ class _BreakdownTotalTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
@@ -4902,7 +5037,7 @@ class _BreakdownTotalTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+                  style: const TextStyle(color: _inkSoft, fontSize: 13),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -4910,7 +5045,7 @@ class _BreakdownTotalTile extends StatelessWidget {
                   style: TextStyle(
                     color: color,
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -4937,13 +5072,13 @@ class CreditBreakdownCard extends StatelessWidget {
     final isConference = entry.eventType == '学会';
     final color = isConference ? _ink : _primary;
     final background = isConference
-        ? const Color(0xFFEAF0F4)
-        : const Color(0xFFE5F2EF);
+        ? _neutralSoft
+        : _primarySoft;
 
     return Card(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -4970,7 +5105,7 @@ class CreditBreakdownCard extends StatelessWidget {
                             style: const TextStyle(
                               color: _ink,
                               fontSize: 15,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -4980,7 +5115,7 @@ class CreditBreakdownCard extends StatelessWidget {
                           style: const TextStyle(
                             color: _primary,
                             fontSize: 16,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
@@ -4989,8 +5124,8 @@ class CreditBreakdownCard extends StatelessWidget {
                     Text(
                       '${entry.date} ・ ${entry.organizer}',
                       style: const TextStyle(
-                        color: Colors.blueGrey,
-                        fontSize: 13,
+                        color: _inkSoft,
+                        fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 9),
@@ -5007,7 +5142,7 @@ class CreditBreakdownCard extends StatelessWidget {
                       children: [
                         const Icon(
                           Icons.badge_outlined,
-                          color: Colors.blueGrey,
+                          color: _inkSoft,
                           size: 17,
                         ),
                         const SizedBox(width: 5),
@@ -5016,8 +5151,8 @@ class CreditBreakdownCard extends StatelessWidget {
                               ? 'タップして実績の詳細を確認'
                               : 'タップして10桁IDを確認',
                           style: const TextStyle(
-                            color: Colors.blueGrey,
-                            fontSize: 12,
+                            color: _inkSoft,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -5030,7 +5165,7 @@ class CreditBreakdownCard extends StatelessWidget {
                 padding: EdgeInsets.only(top: 38),
                 child: Icon(
                   Icons.chevron_right_rounded,
-                  color: Colors.blueGrey,
+                  color: _inkSoft,
                 ),
               ),
             ],
@@ -5051,7 +5186,7 @@ class RegistrationChoiceSheet extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(20, 10, 20, 22 + bottomPadding),
       decoration: const BoxDecoration(
         color: _canvas,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
         top: false,
@@ -5065,7 +5200,7 @@ class RegistrationChoiceSheet extends StatelessWidget {
                   width: 42,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCAD4CE),
+                    color: _line,
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
@@ -5078,7 +5213,7 @@ class RegistrationChoiceSheet extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 '登録方法を選んでください',
-                style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 15),
+                style: TextStyle(color: _inkSoft, fontSize: 15),
               ),
               const SizedBox(height: 20),
               GridView.count(
@@ -5136,8 +5271,8 @@ class RegistrationChoiceSheet extends StatelessWidget {
                     child: Text(
                       '患者情報が写った画像は登録しないでください。画像は対応端末では端末内でOCRし、氏名・会員番号などラベル付き個人情報を除いた文字を認証済みAI APIへ送ります。Web版または端末内OCR失敗時は添付ファイルを送る場合があります。読み取り内容は確定前に必ず確認します。',
                       style: TextStyle(
-                        color: Colors.blueGrey,
-                        fontSize: 13,
+                        color: _inkSoft,
+                        fontSize: 14,
                         height: 1.45,
                       ),
                     ),
@@ -5170,7 +5305,7 @@ class _RegistrationChoice extends StatelessWidget {
     return Card(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -5179,7 +5314,7 @@ class _RegistrationChoice extends StatelessWidget {
               _IconTile(
                 icon: icon,
                 color: _primary,
-                background: const Color(0xFFE5F2EF),
+                background: _primarySoft,
               ),
               const SizedBox(height: 9),
               Text(
@@ -5188,14 +5323,14 @@ class _RegistrationChoice extends StatelessWidget {
                 style: const TextStyle(
                   color: _ink,
                   fontSize: 15,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+                style: const TextStyle(color: _inkSoft, fontSize: 13),
               ),
             ],
           ),
@@ -5499,7 +5634,7 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                       : isManual
                       ? '参加情報を入力してください'
                       : '読み取った内容が正しいか、参加証と照合してください',
-                  style: TextStyle(color: Colors.blueGrey.shade600),
+                  style: TextStyle(color: _inkSoft),
                 ),
                 const SizedBox(height: 16),
                 _LabeledField(
@@ -5562,14 +5697,14 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                     const _StatusChip(
                       label: '複数選択可',
                       foreground: _primary,
-                      background: Color(0xFFE5F2EF),
+                      background: _primarySoft,
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(
                   '資格ごとに区分と単位を確認します',
-                  style: TextStyle(color: Colors.blueGrey.shade600),
+                  style: TextStyle(color: _inkSoft),
                 ),
                 const SizedBox(height: 14),
                 ...widget.controller.snapshot.qualifications.map(
@@ -5669,7 +5804,7 @@ class _StepIndicator extends StatelessWidget {
                     height: 30,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: active ? _primary : const Color(0xFFE1E6E2),
+                      color: active ? _primary : _track,
                       shape: BoxShape.circle,
                     ),
                     child: step < currentStep
@@ -5681,8 +5816,8 @@ class _StepIndicator extends StatelessWidget {
                         : Text(
                             '$step',
                             style: TextStyle(
-                              color: active ? Colors.white : Colors.blueGrey,
-                              fontWeight: FontWeight.w800,
+                              color: active ? Colors.white : _inkSoft,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                   ),
@@ -5690,8 +5825,8 @@ class _StepIndicator extends StatelessWidget {
                   Text(
                     labels[index],
                     style: TextStyle(
-                      color: active ? _ink : Colors.blueGrey,
-                      fontSize: 12,
+                      color: active ? _ink : _inkSoft,
+                      fontSize: 13,
                       fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
@@ -5708,7 +5843,7 @@ class _StepIndicator extends StatelessWidget {
                     ),
                     color: step < currentStep
                         ? _primary
-                        : const Color(0xFFD8DFDA),
+                        : _line,
                   ),
                 ),
             ],
@@ -5736,8 +5871,8 @@ class _CertificatePreview extends StatelessWidget {
       height: 174,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFE7ECE9),
-        borderRadius: BorderRadius.circular(20),
+        color: _track,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
@@ -5747,10 +5882,10 @@ class _CertificatePreview extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFCAD3CE)),
+              border: Border.all(color: _line),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x16000000),
+                  color: _cardShadow,
                   blurRadius: 10,
                   offset: Offset(0, 4),
                 ),
@@ -5774,8 +5909,8 @@ class _CertificatePreview extends StatelessWidget {
                       '受講証明書',
                       style: TextStyle(
                         color: _ink,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -5806,7 +5941,7 @@ class _CertificatePreview extends StatelessWidget {
               children: [
                 Text(
                   source,
-                  style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
+                  style: const TextStyle(color: _inkSoft, fontSize: 14),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -5816,7 +5951,7 @@ class _CertificatePreview extends StatelessWidget {
                   style: const TextStyle(
                     color: _ink,
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -5863,7 +5998,7 @@ class _DocumentLine extends StatelessWidget {
       width: width,
       height: 3,
       decoration: BoxDecoration(
-        color: const Color(0xFFD9E1DC),
+        color: _line,
         borderRadius: BorderRadius.circular(99),
       ),
     );
@@ -5878,8 +6013,8 @@ class _ReviewWarning extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF2E1),
-        borderRadius: BorderRadius.circular(16),
+        color: _warningSoft,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: const Row(
         children: [
@@ -5889,7 +6024,7 @@ class _ReviewWarning extends StatelessWidget {
             child: Text(
               '主催者名の読み取り精度が低いため、確認してください',
               style: TextStyle(
-                color: Color(0xFF77572E),
+                color: _warningInk,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -5924,11 +6059,11 @@ class _CertificateReadStatus extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: succeeded
-            ? const Color(0xFFE5F2EF)
+            ? _primarySoft
             : error != null
-            ? const Color(0xFFFFF2E1)
-            : const Color(0xFFEAF0F4),
-        borderRadius: BorderRadius.circular(16),
+            ? _warningSoft
+            : _neutralSoft,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5970,8 +6105,8 @@ class _CertificateReadStatus extends StatelessWidget {
                       '抽出: ${result!.extractionMethod}',
                     ].join(' / '),
                     style: const TextStyle(
-                      color: Colors.blueGrey,
-                      fontSize: 12,
+                      color: _inkSoft,
+                      fontSize: 13,
                     ),
                   ),
                 ],
@@ -5983,8 +6118,8 @@ class _CertificateReadStatus extends StatelessWidget {
                         (warning) => Text(
                           '・$warning',
                           style: const TextStyle(
-                            color: Color(0xFF77572E),
-                            fontSize: 12,
+                            color: _warningInk,
+                            fontSize: 13,
                           ),
                         ),
                       ),
@@ -6031,7 +6166,7 @@ class _LabeledField extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   color: _ink,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -6040,7 +6175,7 @@ class _LabeledField extends StatelessWidget {
                 '読取 $confidence',
                 style: TextStyle(
                   color: needsCheck ? _warning : _primary,
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -6089,7 +6224,7 @@ class _AllocationCard extends StatelessWidget {
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: selected ? _primary : _line,
           width: selected ? 2 : 1,
@@ -6107,7 +6242,7 @@ class _AllocationCard extends StatelessWidget {
               style: const TextStyle(
                 color: _ink,
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
             subtitle: Padding(
@@ -6130,7 +6265,7 @@ class _AllocationCard extends StatelessWidget {
                 'この候補になった理由',
                 style: TextStyle(
                   color: _primary,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -6140,8 +6275,8 @@ class _AllocationCard extends StatelessWidget {
                   child: Text(
                     reason,
                     style: const TextStyle(
-                      color: Colors.blueGrey,
-                      fontSize: 13,
+                      color: _inkSoft,
+                      fontSize: 14,
                       height: 1.45,
                     ),
                   ),
@@ -6181,7 +6316,7 @@ class RegistrationResultScreen extends StatelessWidget {
                     width: 92,
                     height: 92,
                     decoration: const BoxDecoration(
-                      color: Color(0xFFE1F2ED),
+                      color: _primarySoft,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -6204,7 +6339,7 @@ class RegistrationResultScreen extends StatelessWidget {
                       : '$qualificationCount件の資格に単位を反映しました',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.blueGrey.shade600,
+                    color: _inkSoft,
                     fontSize: 16,
                   ),
                 ),
@@ -6223,7 +6358,7 @@ class RegistrationResultScreen extends StatelessWidget {
                             style: TextStyle(
                               color: _ink,
                               fontSize: 17,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -6293,10 +6428,10 @@ class _ResultProgressRow extends StatelessWidget {
             style: const TextStyle(color: _ink, fontWeight: FontWeight.w700),
           ),
         ),
-        Text('$before → ', style: const TextStyle(color: Colors.blueGrey)),
+        Text('$before → ', style: const TextStyle(color: _inkSoft)),
         Text(
           '$after / $requiredValue 単位',
-          style: const TextStyle(color: _primary, fontWeight: FontWeight.w800),
+          style: const TextStyle(color: _primary, fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -6438,7 +6573,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         const SizedBox(height: 5),
         Text(
           '登録した参加証と単位を確認できます',
-          style: TextStyle(color: Colors.blueGrey.shade600),
+          style: TextStyle(color: _inkSoft),
         ),
         const SizedBox(height: 20),
         TextField(
@@ -6487,14 +6622,14 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
           children: [
             Text(
               '${filtered.length}件',
-              style: const TextStyle(color: _ink, fontWeight: FontWeight.w800),
+              style: const TextStyle(color: _ink, fontWeight: FontWeight.w700),
             ),
             const Spacer(),
-            const Icon(Icons.sort_rounded, size: 19, color: Colors.blueGrey),
+            const Icon(Icons.sort_rounded, size: 19, color: _inkSoft),
             const SizedBox(width: 4),
             Text(
               _filter == ActivityFilter.planned ? '開催日順' : '新しい順',
-              style: const TextStyle(color: Colors.blueGrey),
+              style: const TextStyle(color: _inkSoft),
             ),
           ],
         ),
@@ -6553,13 +6688,13 @@ class _ActivityCard extends StatelessWidget {
         ? _ink
         : _warning;
     final background = isConfirmed
-        ? const Color(0xFFE5F2EF)
+        ? _primarySoft
         : isPlanned
-        ? const Color(0xFFEAF0F4)
-        : const Color(0xFFFFF0DC);
+        ? _neutralSoft
+        : _warningSoft;
     return Card(
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         onTap: () {
           if (activity.needsReview) {
             Navigator.of(context).push(
@@ -6601,7 +6736,7 @@ class _ActivityCard extends StatelessWidget {
                             style: const TextStyle(
                               color: _ink,
                               fontSize: 15,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -6617,8 +6752,8 @@ class _ActivityCard extends StatelessWidget {
                     Text(
                       '${activity.date} ・ ${activity.organizer}',
                       style: const TextStyle(
-                        color: Colors.blueGrey,
-                        fontSize: 13,
+                        color: _inkSoft,
+                        fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -6626,7 +6761,7 @@ class _ActivityCard extends StatelessWidget {
                       activity.credits,
                       style: TextStyle(
                         color: foreground,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -6636,7 +6771,7 @@ class _ActivityCard extends StatelessWidget {
                 padding: EdgeInsets.only(top: 24),
                 child: Icon(
                   Icons.chevron_right_rounded,
-                  color: Colors.blueGrey,
+                  color: _inkSoft,
                 ),
               ),
             ],
@@ -6839,7 +6974,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 5),
         Text(
           '通知・資格情報・バックアップを管理します',
-          style: TextStyle(color: Colors.blueGrey.shade600),
+          style: TextStyle(color: _inkSoft),
         ),
         const SizedBox(height: 22),
         if (widget.authUser != null) ...[
@@ -6857,7 +6992,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         : 'ログイン中',
                     style: const TextStyle(
                       color: _ink,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   subtitle: widget.authUser!.email == null
@@ -6920,11 +7055,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const _IconTile(
               icon: Icons.person_outline_rounded,
               color: _primary,
-              background: Color(0xFFE5F2EF),
+              background: _primarySoft,
             ),
             title: const Text(
               '本人専用プロフィール',
-              style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+              style: TextStyle(color: _ink, fontWeight: FontWeight.w700),
             ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -7090,7 +7225,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const Center(
           child: Text(
             '資格更新ノート  PWA v1.0',
-            style: TextStyle(color: Colors.blueGrey, fontSize: 12),
+            style: TextStyle(color: _inkSoft, fontSize: 13),
           ),
         ),
       ],
@@ -7110,7 +7245,7 @@ class _SettingsHeading extends StatelessWidget {
       style: const TextStyle(
         color: _ink,
         fontSize: 17,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
       ),
     );
   }
@@ -7133,9 +7268,9 @@ class _AccountAvatar extends StatelessWidget {
         : 'U';
     return CircleAvatar(
       radius: 23,
-      backgroundColor: const Color(0xFFE5F2EF),
+      backgroundColor: _primarySoft,
       foregroundColor: _primary,
-      child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w800)),
+      child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -7156,14 +7291,18 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Icon(icon, color: _primary),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Icon(icon, color: _primary, size: 26),
       title: Text(
         title,
-        style: const TextStyle(color: _ink, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+          color: _ink,
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       subtitle: subtitle == null ? null : Text(subtitle!),
-      trailing: const Icon(Icons.chevron_right_rounded),
+      trailing: const Icon(Icons.chevron_right_rounded, color: _inkSoft),
       onTap: onTap,
     );
   }
@@ -7183,13 +7322,13 @@ class _IconTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 42,
-      height: 42,
+      width: 46,
+      height: 46,
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(icon, color: color, size: 22),
+      child: Icon(icon, color: color, size: 24),
     );
   }
 }
@@ -7208,17 +7347,18 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(99),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: foreground.withValues(alpha: .28)),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: foreground,
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -7234,16 +7374,16 @@ class _MiniPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: emphasized ? const Color(0xFFE5F2EF) : const Color(0xFFF0F3F1),
-        borderRadius: BorderRadius.circular(99),
+        color: emphasized ? _primarySoft : _neutralSoft,
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: emphasized ? _primary : _ink,
-          fontSize: 12,
+          color: emphasized ? _primaryDark : _ink,
+          fontSize: 14,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -7260,21 +7400,22 @@ class _StatusStyle {
 }
 
 _StatusStyle _statusStyle(QualificationState state) {
+  // 状態ごとに色相を変えて、文字を読まなくても一目で区別できるようにする。
   return switch (state) {
     QualificationState.needsAttention => const _StatusStyle(
       '要確認',
       _warning,
-      Color(0xFFFFF0DC),
+      _warningSoft,
     ),
     QualificationState.onTrack => const _StatusStyle(
       '順調',
-      _primary,
-      Color(0xFFE5F2EF),
+      _success,
+      _successSoft,
     ),
     QualificationState.almostDue => const _StatusStyle(
       '期限注意',
       _danger,
-      Color(0xFFF8E8E5),
+      _dangerSoft,
     ),
   };
 }
@@ -7308,11 +7449,11 @@ void _showEvidenceSheet(BuildContext context, Qualification qualification) {
             leading: const _IconTile(
               icon: Icons.picture_as_pdf_outlined,
               color: _danger,
-              background: Color(0xFFF8E8E5),
+              background: _dangerSoft,
             ),
             title: Text(
               qualification.sourceTitle ?? '認定団体の公式資料',
-              style: const TextStyle(fontWeight: FontWeight.w800),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             subtitle: Text(
               qualification.sourceCheckedAt == null
@@ -7323,7 +7464,7 @@ void _showEvidenceSheet(BuildContext context, Qualification qualification) {
           const SizedBox(height: 8),
           const Text(
             '管理画面で内容を確認・承認した条件だけを表示しています。更新申請前には必ず最新の公式資料もご確認ください。',
-            style: TextStyle(color: Colors.blueGrey, height: 1.5),
+            style: TextStyle(color: _inkSoft, height: 1.5),
           ),
           if (qualification.sourceUrl != null) ...[
             const SizedBox(height: 18),
@@ -7372,14 +7513,14 @@ void _showActivitySheet(
           const SizedBox(height: 12),
           Text(
             '${activity.date} ・ ${activity.organizer}',
-            style: const TextStyle(color: Colors.blueGrey),
+            style: const TextStyle(color: _inkSoft),
           ),
           const SizedBox(height: 8),
           Text(
             '${activity.status} ・ ${activity.credits}',
             style: const TextStyle(
               color: _primary,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 18),
@@ -7480,8 +7621,8 @@ void _showCreditBreakdownDetail(
                   label: entry.eventType,
                   foreground: isConference ? _ink : _primary,
                   background: isConference
-                      ? const Color(0xFFEAF0F4)
-                      : const Color(0xFFE5F2EF),
+                      ? _neutralSoft
+                      : _primarySoft,
                 ),
                 const Spacer(),
                 Text(
@@ -7489,7 +7630,7 @@ void _showCreditBreakdownDetail(
                   style: const TextStyle(
                     color: _primary,
                     fontSize: 22,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -7499,7 +7640,7 @@ void _showCreditBreakdownDetail(
             const SizedBox(height: 7),
             Text(
               '${entry.date} ・ ${entry.organizer}',
-              style: const TextStyle(color: Colors.blueGrey),
+              style: const TextStyle(color: _inkSoft),
             ),
             const SizedBox(height: 22),
             if (entry.certificationId.isNotEmpty) ...[
@@ -7508,19 +7649,19 @@ void _showCreditBreakdownDetail(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: _ink,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.badge_outlined, color: Color(0xFFBFD0DC)),
+                        Icon(Icons.badge_outlined, color: _onInkMuted),
                         SizedBox(width: 8),
                         Text(
                           '認定ID（10桁）',
                           style: TextStyle(
-                            color: Color(0xFFBFD0DC),
+                            color: _onInkMuted,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -7533,14 +7674,14 @@ void _showCreditBreakdownDetail(
                         color: Colors.white,
                         fontSize: 28,
                         letterSpacing: 2.4,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
                     const SizedBox(height: 9),
                     const Text(
                       '参加証・会員マイページとの照合に使用します',
-                      style: TextStyle(color: Color(0xFFD8E2E9), fontSize: 13),
+                      style: TextStyle(color: _onInkSoft, fontSize: 14),
                     ),
                   ],
                 ),
@@ -7590,14 +7731,14 @@ class _BreakdownDetailRow extends StatelessWidget {
             width: 76,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.blueGrey, fontSize: 13),
+              style: const TextStyle(color: _inkSoft, fontSize: 14),
             ),
           ),
           Expanded(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(color: _ink, fontWeight: FontWeight.w800),
+              style: const TextStyle(color: _ink, fontWeight: FontWeight.w700),
             ),
           ),
         ],

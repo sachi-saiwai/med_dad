@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../data/app_state.dart';
+import 'attachment_compression.dart';
 import 'attachment_service.dart';
 import 'auth_service.dart';
 import 'certificate_extraction.dart';
@@ -214,25 +215,26 @@ class CloudDataService {
   }
 
   Future<String> uploadAttachment(PickedAttachment attachment) async {
-    final bytes = attachment.bytes;
-    final contentType = attachment.contentType;
+    final prepared = await shrinkAttachmentForUpload(attachment);
+    final bytes = prepared.bytes;
+    final contentType = prepared.contentType;
     if (bytes == null || contentType == null) {
       throw const CloudApiException(
         'attachment_bytes_missing',
         '添付ファイルの内容を読み取れませんでした。',
       );
     }
-    if (bytes.length > 3 * 1024 * 1024) {
-      throw const CloudApiException(
+    if (bytes.length > maxAttachmentBytes) {
+      throw CloudApiException(
         'attachment_too_large',
-        '添付できるファイルは3MBまでです。画像を小さくしてお試しください。',
+        attachmentTooLargeMessage(contentType),
       );
     }
     final response = await _authorized(
       'POST',
       '/api/v1/attachments',
       body: {
-        'name': attachment.displayName,
+        'name': prepared.displayName,
         'contentType': contentType,
         'base64': base64Encode(bytes),
       },
@@ -250,11 +252,14 @@ class CloudDataService {
     PickedAttachment? attachment,
     bool includeAttachment = false,
   }) async {
-    final bytes = includeAttachment ? attachment?.bytes : null;
-    if (bytes != null && bytes.length > 3 * 1024 * 1024) {
-      throw const CloudApiException(
+    final prepared = includeAttachment && attachment != null
+        ? await shrinkAttachmentForUpload(attachment)
+        : null;
+    final bytes = prepared?.bytes;
+    if (bytes != null && bytes.length > maxAttachmentBytes) {
+      throw CloudApiException(
         'attachment_too_large',
-        '自動読み取りできるファイルは3MBまでです。',
+        attachmentTooLargeMessage(prepared!.contentType),
       );
     }
     final response = await _authorized(
@@ -264,7 +269,7 @@ class CloudDataService {
         'ocrText': ocrText,
         'qualificationNames': qualificationNames,
         if (bytes != null) 'fileBase64': base64Encode(bytes),
-        if (bytes != null) 'contentType': attachment?.contentType,
+        if (bytes != null) 'contentType': prepared?.contentType,
       },
     );
     if (response.statusCode != 200) _throwResponse(response);

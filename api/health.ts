@@ -13,6 +13,7 @@ export default async function handler(
       status: 'ok',
       database: 'connected',
       blob: process.env.BLOB_READ_WRITE_TOKEN ? 'configured' : 'missing',
+      openai: process.env.OPENAI_API_KEY ? 'configured' : 'missing',
       checkedAt: new Date().toISOString(),
     });
   } catch (error) {

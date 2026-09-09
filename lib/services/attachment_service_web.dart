@@ -25,6 +25,8 @@ class WebAttachmentService implements AttachmentService {
     }
     final image = await _imagePicker.pickImage(
       source: source == 'カメラ撮影' ? ImageSource.camera : ImageSource.gallery,
+      // image_picker_for_web ignores the resize options, so oversized photos
+      // are handled by ShrinkingAttachmentService instead.
       imageQuality: 92,
       requestFullMetadata: false,
     );
