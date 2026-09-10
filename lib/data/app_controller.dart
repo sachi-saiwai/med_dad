@@ -357,7 +357,20 @@ class AppController extends ChangeNotifier {
         attachment: attachment,
         includeAttachment: includeAttachment,
       );
-      if (result.hasUsefulValues) return result;
+      if (result.hasUsefulValues) {
+        if (result.certificationId.isEmpty &&
+            local.certificationId.isNotEmpty) {
+          return result.copyWith(
+            certificationId: local.certificationId,
+            fieldConfidence: {
+              ...result.fieldConfidence,
+              if (local.confidenceFor('certificationId') != null)
+                'certificationId': local.confidenceFor('certificationId')!,
+            },
+          );
+        }
+        return result;
+      }
       return local.withWarning('AIから有効な項目を取得できなかったため端末内抽出を使用しました');
     } on CloudApiException catch (error) {
       if (local.hasUsefulValues) {

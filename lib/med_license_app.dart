@@ -1719,7 +1719,7 @@ List<CreditBreakdownEntry> _creditEntriesForQualification(
           date: activity.date.isEmpty ? '日付未入力' : activity.date,
           organizer: activity.organizer.isEmpty ? '主催者未入力' : activity.organizer,
           credits: allocation.credits,
-          certificationId: '',
+          certificationId: activity.certificationId,
         ),
       );
     }
@@ -2214,9 +2214,7 @@ class _SetupProgressIndicator extends StatelessWidget {
                   width: 22,
                   height: 2,
                   margin: const EdgeInsets.only(bottom: 25),
-                  color: step < currentStep
-                      ? _primary
-                      : _line,
+                  color: step < currentStep ? _primary : _line,
                 ),
             ],
           ),
@@ -2308,11 +2306,7 @@ class _SetupFeatureRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _IconTile(
-            icon: icon,
-            color: _primary,
-            background: _primarySoft,
-          ),
+          _IconTile(icon: icon, color: _primary, background: _primarySoft),
           const SizedBox(width: 13),
           Expanded(
             child: Column(
@@ -2359,11 +2353,7 @@ class _SetupPrivacyNotice extends StatelessWidget {
           Expanded(
             child: Text(
               '患者情報は登録しません。表示結果は自己管理用のため、最終確認は資格団体の公式情報で行ってください。',
-              style: TextStyle(
-                color: _warningInk,
-                fontSize: 14,
-                height: 1.5,
-              ),
+              style: TextStyle(color: _warningInk, fontSize: 14, height: 1.5),
             ),
           ),
         ],
@@ -2904,10 +2894,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
                         Expanded(
                           child: Text(
                             '候補を選ぶと認定団体と更新条件を自動設定します',
-                            style: TextStyle(
-                              color: _inkSoft,
-                              fontSize: 13,
-                            ),
+                            style: TextStyle(color: _inkSoft, fontSize: 13),
                           ),
                         ),
                       ],
@@ -3070,10 +3057,7 @@ class _PrimaryQualificationButton extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: const TextStyle(
-                          color: _inkSoft,
-                          fontSize: 12,
-                        ),
+                        style: const TextStyle(color: _inkSoft, fontSize: 12),
                       ),
                     ],
                   ),
@@ -3160,20 +3144,12 @@ class _SurgicalSubspecialtySection extends StatelessWidget {
           const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 16,
-                color: _inkSoft,
-              ),
+              Icon(Icons.info_outline_rounded, size: 16, color: _inkSoft),
               SizedBox(width: 6),
               Expanded(
                 child: Text(
                   '日本専門医機構の領域一覧に基づく6領域です。更新方法は各団体の公式情報で確認してください。',
-                  style: TextStyle(
-                    color: _inkSoft,
-                    fontSize: 12,
-                    height: 1.45,
-                  ),
+                  style: TextStyle(color: _inkSoft, fontSize: 12, height: 1.45),
                 ),
               ),
             ],
@@ -3422,9 +3398,9 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 5),
               Text(
                 '${DateTime.now().year}年${DateTime.now().month}月${DateTime.now().day}日 現在',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: _inkSoft,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: _inkSoft),
               ),
               const SizedBox(height: 20),
               if (controller.demoMode) ...[
@@ -3768,10 +3744,7 @@ class QualificationCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '期限 ${qualification.deadline}',
-                          style: const TextStyle(
-                            color: _inkSoft,
-                            fontSize: 15,
-                          ),
+                          style: const TextStyle(color: _inkSoft, fontSize: 15),
                         ),
                       ],
                     ),
@@ -3862,10 +3835,7 @@ class QualificationCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: _inkSoft,
-                  ),
+                  const Icon(Icons.chevron_right_rounded, color: _inkSoft),
                 ],
               ),
             ],
@@ -4189,10 +4159,7 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  '講習・学会ごとの取得単位を確認できます',
-                  style: TextStyle(color: _inkSoft),
-                ),
+                Text('講習・学会ごとの取得単位を確認できます', style: TextStyle(color: _inkSoft)),
                 const SizedBox(height: 12),
                 if (creditEntries.isEmpty)
                   const Card(
@@ -4676,10 +4643,7 @@ class _PointMetric extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(color: _inkSoft, fontSize: 13),
-        ),
+        Text(label, style: const TextStyle(color: _inkSoft, fontSize: 13)),
         const SizedBox(height: 3),
         Text(
           '$value単位',
@@ -5071,9 +5035,7 @@ class CreditBreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isConference = entry.eventType == '学会';
     final color = isConference ? _ink : _primary;
-    final background = isConference
-        ? _neutralSoft
-        : _primarySoft;
+    final background = isConference ? _neutralSoft : _primarySoft;
 
     return Card(
       child: InkWell(
@@ -5123,10 +5085,7 @@ class CreditBreakdownCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       '${entry.date} ・ ${entry.organizer}',
-                      style: const TextStyle(
-                        color: _inkSoft,
-                        fontSize: 14,
-                      ),
+                      style: const TextStyle(color: _inkSoft, fontSize: 14),
                     ),
                     const SizedBox(height: 9),
                     Wrap(
@@ -5163,10 +5122,7 @@ class CreditBreakdownCard extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.only(top: 38),
-                child: Icon(
-                  Icons.chevron_right_rounded,
-                  color: _inkSoft,
-                ),
+                child: Icon(Icons.chevron_right_rounded, color: _inkSoft),
               ),
             ],
           ),
@@ -5311,11 +5267,7 @@ class _RegistrationChoice extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _IconTile(
-                icon: icon,
-                color: _primary,
-                background: _primarySoft,
-              ),
+              _IconTile(icon: icon, color: _primary, background: _primarySoft),
               const SizedBox(height: 9),
               Text(
                 label,
@@ -5367,6 +5319,9 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
   late final TextEditingController _creditsController;
   late final TextEditingController _categoryController;
   late final TextEditingController _eventUrlController;
+  late final TextEditingController _certificationIdController;
+  late final TextEditingController _notesController;
+  late final FocusNode _certificationIdFocusNode;
   final Set<String> _selectedQualificationIds = {};
   bool _saving = false;
   bool _reading = false;
@@ -5391,6 +5346,11 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
     _creditsController = TextEditingController(text: usesSample ? '2' : '');
     _categoryController = TextEditingController();
     _eventUrlController = TextEditingController();
+    _certificationIdController = TextEditingController(
+      text: usesSample ? '2608180042' : '',
+    );
+    _notesController = TextEditingController();
+    _certificationIdFocusNode = FocusNode();
     _selectedQualificationIds.addAll(
       widget.controller.snapshot.qualifications.map((item) => item.id),
     );
@@ -5410,6 +5370,9 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
     _creditsController.dispose();
     _categoryController.dispose();
     _eventUrlController.dispose();
+    _certificationIdController.dispose();
+    _notesController.dispose();
+    _certificationIdFocusNode.dispose();
     super.dispose();
   }
 
@@ -5475,6 +5438,9 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
     if (extraction.category.isNotEmpty) {
       _categoryController.text = extraction.category;
     }
+    if (extraction.certificationId.isNotEmpty) {
+      _certificationIdController.text = extraction.certificationId;
+    }
     if (extraction.qualificationNames.isNotEmpty) {
       final matched = widget.controller.snapshot.qualifications
           .where((item) => extraction.qualificationNames.contains(item.name))
@@ -5496,6 +5462,33 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
 
   bool _needsCheck(String field) =>
       (_extraction?.confidenceFor(field) ?? 1) < 0.85;
+
+  void _applyCertificateIdSuggestion(_CertificateIdSuggestion suggestion) {
+    setState(() {
+      _certificationIdController.value = TextEditingValue(
+        text: suggestion.certificationId,
+        selection: TextSelection.collapsed(
+          offset: suggestion.certificationId.length,
+        ),
+      );
+      if (suggestion.title.isNotEmpty) {
+        _eventController.text = suggestion.title;
+      }
+      if (suggestion.date.isNotEmpty) _dateController.text = suggestion.date;
+      if (suggestion.organizer.isNotEmpty) {
+        _organizerController.text = suggestion.organizer;
+      }
+      final credits = suggestion.credits;
+      if (credits != null) {
+        _creditsController.text = credits == credits.roundToDouble()
+            ? credits.toInt().toString()
+            : credits.toString();
+      }
+      if (suggestion.category.isNotEmpty) {
+        _categoryController.text = suggestion.category;
+      }
+    });
+  }
 
   Future<void> _save({required bool draft}) async {
     if (_saving) return;
@@ -5519,6 +5512,14 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
       ).showSnackBar(const SnackBar(content: Text('ポイントは0以上で入力してください')));
       return;
     }
+    final certificationId = _certificationIdController.text.trim();
+    if (certificationId.isNotEmpty &&
+        !RegExp(r'^\d{10}$').hasMatch(certificationId)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('認定IDは10桁の数字で入力してください')));
+      return;
+    }
     setState(() => _saving = true);
     try {
       final attachmentPath = await widget.controller.uploadAttachment(
@@ -5539,6 +5540,8 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
         createdAt: DateTime.now().toIso8601String(),
         attachmentPath: attachmentPath,
         eventUrl: _eventUrlController.text.trim(),
+        certificationId: certificationId,
+        notes: _notesController.text.trim(),
         allocations: _selectedQualificationIds
             .map(
               (qualificationId) => StoredActivityAllocation(
@@ -5637,6 +5640,17 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                   style: TextStyle(color: _inkSoft),
                 ),
                 const SizedBox(height: 16),
+                _CertificateIdField(
+                  controller: _certificationIdController,
+                  focusNode: _certificationIdFocusNode,
+                  suggestions: _certificateIdSuggestionsFor(widget.controller),
+                  confidence: widget.controller.demoMode
+                      ? '94%'
+                      : _confidenceLabel('certificationId'),
+                  needsCheck: _needsCheck('certificationId'),
+                  onSelected: _applyCertificateIdSuggestion,
+                ),
+                const SizedBox(height: 14),
                 _LabeledField(
                   label: '研修会・イベント名',
                   controller: _eventController,
@@ -5683,8 +5697,16 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                   _LabeledField(
                     label: '学会・イベントURL（任意）',
                     controller: _eventUrlController,
+                    hintText: 'https://...',
                   ),
                 ],
+                const SizedBox(height: 14),
+                _LabeledField(
+                  label: 'その他（任意）',
+                  controller: _notesController,
+                  maxLines: 3,
+                  hintText: '会場、備考、会員マイページで使うメモなど',
+                ),
                 const SizedBox(height: 28),
                 Row(
                   children: [
@@ -5702,10 +5724,7 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  '資格ごとに区分と単位を確認します',
-                  style: TextStyle(color: _inkSoft),
-                ),
+                Text('資格ごとに区分と単位を確認します', style: TextStyle(color: _inkSoft)),
                 const SizedBox(height: 14),
                 ...widget.controller.snapshot.qualifications.map(
                   (qualification) => Padding(
@@ -5841,9 +5860,7 @@ class _StepIndicator extends StatelessWidget {
                       right: 8,
                       bottom: 23,
                     ),
-                    color: step < currentStep
-                        ? _primary
-                        : _line,
+                    color: step < currentStep ? _primary : _line,
                   ),
                 ),
             ],
@@ -6023,10 +6040,7 @@ class _ReviewWarning extends StatelessWidget {
           Expanded(
             child: Text(
               '主催者名の読み取り精度が低いため、確認してください',
-              style: TextStyle(
-                color: _warningInk,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: _warningInk, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -6104,10 +6118,7 @@ class _CertificateReadStatus extends StatelessWidget {
                       if (ocrEngine != null) 'OCR: $ocrEngine',
                       '抽出: ${result!.extractionMethod}',
                     ].join(' / '),
-                    style: const TextStyle(
-                      color: _inkSoft,
-                      fontSize: 13,
-                    ),
+                    style: const TextStyle(color: _inkSoft, fontSize: 13),
                   ),
                 ],
                 if (!reading && warnings.isNotEmpty) ...[
@@ -6147,12 +6158,16 @@ class _LabeledField extends StatelessWidget {
     required this.controller,
     this.confidence,
     this.needsCheck = false,
+    this.maxLines = 1,
+    this.hintText,
   });
 
   final String label;
   final TextEditingController controller;
   final String? confidence;
   final bool needsCheck;
+  final int maxLines;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -6185,9 +6200,13 @@ class _LabeledField extends StatelessWidget {
         TextField(
           key: ValueKey('certificate-field-$label'),
           controller: controller,
+          maxLines: maxLines,
           style: const TextStyle(color: _ink, fontSize: 16),
           decoration: InputDecoration(
-            suffixIcon: const Icon(Icons.edit_outlined, size: 20),
+            hintText: hintText,
+            suffixIcon: maxLines > 1
+                ? null
+                : const Icon(Icons.edit_outlined, size: 20),
             enabledBorder: needsCheck
                 ? OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -6195,6 +6214,238 @@ class _LabeledField extends StatelessWidget {
                   )
                 : null,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CertificateIdSuggestion {
+  const _CertificateIdSuggestion({
+    required this.certificationId,
+    required this.title,
+    required this.date,
+    required this.organizer,
+    this.credits,
+    this.category = '',
+  });
+
+  final String certificationId;
+  final String title;
+  final String date;
+  final String organizer;
+  final double? credits;
+  final String category;
+}
+
+List<_CertificateIdSuggestion> _certificateIdSuggestionsFor(
+  AppController controller,
+) {
+  final suggestions = <_CertificateIdSuggestion>[];
+  final seen = <String>{};
+
+  void add(_CertificateIdSuggestion item) {
+    final id = item.certificationId.trim();
+    if (!RegExp(r'^\d{10}$').hasMatch(id) || !seen.add(id)) return;
+    suggestions.add(item);
+  }
+
+  for (final activity in controller.snapshot.activities) {
+    add(
+      _CertificateIdSuggestion(
+        certificationId: activity.certificationId,
+        title: activity.title,
+        date: activity.date,
+        organizer: activity.organizer,
+        credits: activity.credits > 0 ? activity.credits : null,
+        category:
+            activity.allocations
+                .map((item) => item.category.trim())
+                .where((item) => item.isNotEmpty && item != '未分類')
+                .firstOrNull ??
+            '',
+      ),
+    );
+  }
+  for (final entries in creditBreakdownByQualification.values) {
+    for (final entry in entries) {
+      add(
+        _CertificateIdSuggestion(
+          certificationId: entry.certificationId,
+          title: entry.title,
+          date: entry.date,
+          organizer: entry.organizer,
+          credits: entry.credits,
+          category: entry.category,
+        ),
+      );
+    }
+  }
+  return suggestions;
+}
+
+class _CertificateIdField extends StatelessWidget {
+  const _CertificateIdField({
+    required this.controller,
+    required this.focusNode,
+    required this.suggestions,
+    required this.onSelected,
+    this.confidence,
+    this.needsCheck = false,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final List<_CertificateIdSuggestion> suggestions;
+  final ValueChanged<_CertificateIdSuggestion> onSelected;
+  final String? confidence;
+  final bool needsCheck;
+
+  Iterable<_CertificateIdSuggestion> _optionsFor(String query) {
+    final digits = query.replaceAll(RegExp(r'\D'), '');
+    final matches = digits.isEmpty
+        ? suggestions
+        : suggestions.where((item) => item.certificationId.startsWith(digits));
+    return matches.take(8);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                '認定ID（10桁）',
+                style: TextStyle(color: _ink, fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (confidence != null)
+              Text(
+                '読取 $confidence',
+                style: TextStyle(
+                  color: needsCheck ? _warning : _primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 7),
+        RawAutocomplete<_CertificateIdSuggestion>(
+          textEditingController: controller,
+          focusNode: focusNode,
+          displayStringForOption: (option) => option.certificationId,
+          optionsBuilder: (textEditingValue) =>
+              _optionsFor(textEditingValue.text),
+          onSelected: onSelected,
+          fieldViewBuilder:
+              (context, textEditingController, fieldFocusNode, onSubmitted) {
+                return TextField(
+                  key: const ValueKey('certificate-field-認定ID（10桁）'),
+                  controller: textEditingController,
+                  focusNode: fieldFocusNode,
+                  keyboardType: TextInputType.number,
+                  maxLength: 10,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 16,
+                    letterSpacing: 1.2,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '例：2608180042',
+                    helperText: '参加証の10桁ID。入力やフォーカスで候補を表示します',
+                    counterText: '',
+                    suffixIcon: const Icon(Icons.badge_outlined, size: 20),
+                    enabledBorder: needsCheck
+                        ? OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: _warning,
+                              width: 1.5,
+                            ),
+                          )
+                        : null,
+                  ),
+                  onSubmitted: (_) => onSubmitted(),
+                );
+              },
+          optionsViewBuilder: (context, onSelectedOption, options) {
+            final entries = options.toList(growable: false);
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(12),
+                clipBehavior: Clip.antiAlias,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 520,
+                    maxHeight: 280,
+                  ),
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: entries.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final entry = entries[index];
+                      return InkWell(
+                        onTap: () => onSelectedOption(entry),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                entry.certificationId,
+                                style: const TextStyle(
+                                  color: _ink,
+                                  fontSize: 16,
+                                  letterSpacing: 1.4,
+                                  fontWeight: FontWeight.w700,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                entry.title,
+                                style: const TextStyle(
+                                  color: _ink,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                [
+                                  entry.date,
+                                  entry.organizer,
+                                  if (entry.credits != null)
+                                    '${_formatNumber(entry.credits!)}単位',
+                                ].where((item) => item.isNotEmpty).join(' ・ '),
+                                style: const TextStyle(
+                                  color: _inkSoft,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -6338,10 +6589,7 @@ class RegistrationResultScreen extends StatelessWidget {
                       ? '$qualificationCount件の資格に予定ポイントを反映しました'
                       : '$qualificationCount件の資格に単位を反映しました',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _inkSoft,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: _inkSoft, fontSize: 16),
                 ),
                 const SizedBox(height: 28),
                 const _StepIndicator(currentStep: 3),
@@ -6516,6 +6764,8 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                       : '単位未確認',
                   needsReview: item.status == '下書き' || item.status == '要確認',
                   eventUrl: item.eventUrl,
+                  certificationId: item.certificationId,
+                  notes: item.notes,
                   qualificationNames:
                       item.allocations.isEmpty &&
                           widget.controller.snapshot.qualifications.length == 1
@@ -6551,7 +6801,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       final query = _normalizeSearchText(_query);
       if (query.isEmpty) return true;
       return _normalizeSearchText(
-        '${item.title} ${item.organizer}',
+        '${item.title} ${item.organizer} ${item.certificationId} ${item.notes}',
       ).contains(query);
     }).toList();
     if (_filter == ActivityFilter.planned) {
@@ -6571,10 +6821,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       children: [
         Text('実績', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 5),
-        Text(
-          '登録した参加証と単位を確認できます',
-          style: TextStyle(color: _inkSoft),
-        ),
+        Text('登録した参加証と単位を確認できます', style: TextStyle(color: _inkSoft)),
         const SizedBox(height: 20),
         TextField(
           onChanged: (value) => setState(() => _query = value),
@@ -6658,6 +6905,8 @@ class _ActivityData {
     required this.credits,
     this.needsReview = false,
     this.eventUrl = '',
+    this.certificationId = '',
+    this.notes = '',
     this.qualificationNames = '',
   });
 
@@ -6669,6 +6918,8 @@ class _ActivityData {
   final String credits;
   final bool needsReview;
   final String eventUrl;
+  final String certificationId;
+  final String notes;
   final String qualificationNames;
 }
 
@@ -6751,10 +7002,7 @@ class _ActivityCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       '${activity.date} ・ ${activity.organizer}',
-                      style: const TextStyle(
-                        color: _inkSoft,
-                        fontSize: 14,
-                      ),
+                      style: const TextStyle(color: _inkSoft, fontSize: 14),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -6769,10 +7017,7 @@ class _ActivityCard extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.only(top: 24),
-                child: Icon(
-                  Icons.chevron_right_rounded,
-                  color: _inkSoft,
-                ),
+                child: Icon(Icons.chevron_right_rounded, color: _inkSoft),
               ),
             ],
           ),
@@ -6972,10 +7217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         Text('設定', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 5),
-        Text(
-          '通知・資格情報・バックアップを管理します',
-          style: TextStyle(color: _inkSoft),
-        ),
+        Text('通知・資格情報・バックアップを管理します', style: TextStyle(color: _inkSoft)),
         const SizedBox(height: 22),
         if (widget.authUser != null) ...[
           const _SettingsHeading('アカウント'),
@@ -7524,6 +7766,28 @@ void _showActivitySheet(
             ),
           ),
           const SizedBox(height: 18),
+          if (activity.certificationId.isNotEmpty)
+            _SettingsTile(
+              icon: Icons.badge_outlined,
+              title: '認定ID（10桁）',
+              subtitle: activity.certificationId,
+              onTap: () async {
+                await Clipboard.setData(
+                  ClipboardData(text: activity.certificationId),
+                );
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('認定IDをコピーしました')));
+              },
+            ),
+          if (activity.notes.isNotEmpty)
+            _SettingsTile(
+              icon: Icons.notes_outlined,
+              title: 'その他',
+              subtitle: activity.notes,
+              onTap: _noop,
+            ),
           if (activity.eventUrl.isNotEmpty)
             _SettingsTile(
               icon: Icons.open_in_new_rounded,
@@ -7620,9 +7884,7 @@ void _showCreditBreakdownDetail(
                 _StatusChip(
                   label: entry.eventType,
                   foreground: isConference ? _ink : _primary,
-                  background: isConference
-                      ? _neutralSoft
-                      : _primarySoft,
+                  background: isConference ? _neutralSoft : _primarySoft,
                 ),
                 const Spacer(),
                 Text(

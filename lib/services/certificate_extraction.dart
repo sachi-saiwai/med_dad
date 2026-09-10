@@ -5,6 +5,7 @@ class CertificateExtraction {
     this.organizer = '',
     this.credits,
     this.category = '',
+    this.certificationId = '',
     this.qualificationNames = const [],
     this.fieldConfidence = const {},
     this.evidence = const {},
@@ -17,6 +18,7 @@ class CertificateExtraction {
   final String organizer;
   final double? credits;
   final String category;
+  final String certificationId;
   final List<String> qualificationNames;
   final Map<String, double> fieldConfidence;
   final Map<String, String> evidence;
@@ -28,22 +30,41 @@ class CertificateExtraction {
       date.isNotEmpty ||
       organizer.isNotEmpty ||
       credits != null ||
-      category.isNotEmpty;
+      category.isNotEmpty ||
+      certificationId.isNotEmpty;
 
   double? confidenceFor(String field) => fieldConfidence[field];
 
-  CertificateExtraction withWarning(String warning) => CertificateExtraction(
-    title: title,
-    date: date,
-    organizer: organizer,
-    credits: credits,
-    category: category,
-    qualificationNames: qualificationNames,
-    fieldConfidence: fieldConfidence,
-    evidence: evidence,
-    warnings: [...warnings, warning],
-    extractionMethod: extractionMethod,
-  );
+  CertificateExtraction copyWith({
+    String? title,
+    String? date,
+    String? organizer,
+    double? credits,
+    String? category,
+    String? certificationId,
+    List<String>? qualificationNames,
+    Map<String, double>? fieldConfidence,
+    Map<String, String>? evidence,
+    List<String>? warnings,
+    String? extractionMethod,
+  }) {
+    return CertificateExtraction(
+      title: title ?? this.title,
+      date: date ?? this.date,
+      organizer: organizer ?? this.organizer,
+      credits: credits ?? this.credits,
+      category: category ?? this.category,
+      certificationId: certificationId ?? this.certificationId,
+      qualificationNames: qualificationNames ?? this.qualificationNames,
+      fieldConfidence: fieldConfidence ?? this.fieldConfidence,
+      evidence: evidence ?? this.evidence,
+      warnings: warnings ?? this.warnings,
+      extractionMethod: extractionMethod ?? this.extractionMethod,
+    );
+  }
+
+  CertificateExtraction withWarning(String warning) =>
+      copyWith(warnings: [...warnings, warning]);
 
   factory CertificateExtraction.fromJson(Map<String, Object?> json) {
     final confidence = <String, double>{};
@@ -67,6 +88,7 @@ class CertificateExtraction {
       organizer: _string(json['organizer']),
       credits: (json['credits'] as num?)?.toDouble(),
       category: _string(json['category']),
+      certificationId: _normalizeCertificationId(json['certificationId']),
       qualificationNames: (json['qualificationNames'] as List? ?? const [])
           .whereType<String>()
           .map((value) => value.trim())
@@ -87,6 +109,11 @@ class CertificateExtraction {
 }
 
 String _string(Object? value) => value is String ? value.trim() : '';
+
+String _normalizeCertificationId(Object? value) {
+  final digits = _string(value).replaceAll(RegExp(r'\D'), '');
+  return digits.length == 10 ? digits : '';
+}
 
 CertificateExtraction extractCertificateFields(String sourceText) {
   final text = sourceText
@@ -145,8 +172,7 @@ CertificateExtraction extractCertificateFields(String sourceText) {
         orElse: () => null,
       ) ??
       lines.cast<String?>().firstWhere(
-        (line) =>
-            line != null && RegExp(r'医療安全|感染対策|医療倫理').hasMatch(line),
+        (line) => line != null && RegExp(r'医療安全|感染対策|医療倫理').hasMatch(line),
         orElse: () => null,
       );
   final category = categorySource == null
@@ -190,6 +216,13 @@ CertificateExtraction extractCertificateFields(String sourceText) {
   }
   record('category', category, categorySource ?? '', 0.68);
 
+  final idCandidate = _firstMatch(
+    lines,
+    RegExp(r'(?:認定ID|証明書番号|参加証番号|受講番号|単位認定番号)\s*[：:]?\s*(\d{10})'),
+  );
+  final certificationId = idCandidate?.match.group(1) ?? '';
+  record('certificationId', certificationId, idCandidate?.line ?? '', 0.9);
+
   final warnings = <String>[
     if (title.isEmpty) '研修会・イベント名を自動判定できませんでした',
     if (date.isEmpty) '開催日を自動判定できませんでした',
@@ -201,6 +234,7 @@ CertificateExtraction extractCertificateFields(String sourceText) {
     organizer: organizer,
     credits: credits,
     category: category,
+    certificationId: certificationId,
     fieldConfidence: confidence,
     evidence: evidence,
     warnings: warnings,

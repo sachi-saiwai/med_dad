@@ -39,6 +39,8 @@ void main() {
       source: 'カメラ撮影',
       createdAt: '2026-08-23T21:00:00.000',
       attachmentPath: '/documents/certificates/example.jpg',
+      certificationId: '2608230101',
+      notes: '会場は県医師会館',
       allocations: [
         StoredActivityAllocation(
           qualificationId: 'qualification-1',
@@ -71,6 +73,8 @@ void main() {
 
     expect(controller.snapshot.activities, hasLength(2));
     expect(controller.snapshot.activities.last.attachmentPath, isNotNull);
+    expect(controller.snapshot.activities.last.certificationId, '2608230101');
+    expect(controller.snapshot.activities.last.notes, '会場は県医師会館');
     final points = controller.snapshot.pointsForQualification(
       'qualification-1',
     );
@@ -94,6 +98,8 @@ void main() {
       'https://example.jp/member',
     );
     expect(restored.activities.first.allocations.single.credits, 5);
+    expect(restored.activities.last.certificationId, '2608230101');
+    expect(restored.activities.last.notes, '会場は県医師会館');
 
     await controller.updateSettings(
       const AppSettingsData(

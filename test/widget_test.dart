@@ -52,6 +52,48 @@ void main() {
     expect(result.creditEntries.single.certificationId, isEmpty);
   });
 
+  test('stored activity keeps a ten digit certification ID', () {
+    const qualification = StoredQualification(
+      id: 'qualification-1',
+      name: '内科専門医',
+      organization: '日本内科学会',
+      licenseNumber: 'CERT-1',
+      memberId: 'MEMBER-1',
+      deadline: '2028/03/31',
+    );
+    const snapshot = AppSnapshot(
+      qualifications: [qualification],
+      activities: [
+        StoredActivity(
+          id: 'real-activity',
+          title: '実際に登録した講習',
+          date: '2026/09/01',
+          organizer: '日本内科学会',
+          status: '確定',
+          credits: 2,
+          source: '手入力',
+          createdAt: '2026-09-01T00:00:00.000',
+          certificationId: '2609010042',
+          notes: 'オンライン受講',
+          allocations: [
+            StoredActivityAllocation(
+              qualificationId: 'qualification-1',
+              credits: 2,
+              category: '共通講習',
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final result = qualificationFromStored(qualification, snapshot);
+    expect(result.creditEntries.single.certificationId, '2609010042');
+    expect(
+      AppSnapshot.fromJson(snapshot.toJson()).activities.single.notes,
+      'オンライン受講',
+    );
+  });
+
   test('surgical qualification catalog contains verified specialties', () {
     final organizationsByName = {
       for (final entry in qualificationCatalog) entry.name: entry.organization,
@@ -359,8 +401,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('読み取り内容の確認'), findsOneWidget);
-    await tester.drag(find.byType(ListView).last, const Offset(0, -650));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -450));
     await tester.pumpAndSettle();
+    expect(find.text('認定ID（10桁）'), findsOneWidget);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -550));
+    await tester.pumpAndSettle();
+    expect(find.text('その他（任意）'), findsOneWidget);
     expect(find.text('反映する資格'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '確定して登録'), findsOneWidget);
   });

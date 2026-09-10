@@ -14,6 +14,7 @@ test('certificate text is structured without exposing attendee identity', () => 
     会員番号：12345678
     開催日：2026年8月18日
     主催：一般社団法人 日本医療安全学会
+    認定ID：2608180042
     医療安全講習 2単位
   `);
 
@@ -22,6 +23,7 @@ test('certificate text is structured without exposing attendee identity', () => 
   assert.equal(result.organizer, '一般社団法人 日本医療安全学会');
   assert.equal(result.credits, 2);
   assert.equal(result.category, '医療安全講習');
+  assert.equal(result.certificationId, '2608180042');
   assert.doesNotMatch(JSON.stringify(result), /資格 花子|12345678/u);
   assert.ok((result.fieldConfidence.credits || 0) > 0.8);
 });

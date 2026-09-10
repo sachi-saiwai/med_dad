@@ -20,7 +20,7 @@ class SqliteAppDataStore implements AppDataStore {
     );
     final opened = await openDatabase(
       databasePath,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE profile (
@@ -55,6 +55,8 @@ class SqliteAppDataStore implements AppDataStore {
             created_at TEXT NOT NULL,
             attachment_path TEXT,
             event_url TEXT NOT NULL DEFAULT '',
+            certification_id TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
             allocations_json TEXT NOT NULL DEFAULT '[]'
           )
         ''');
@@ -86,6 +88,14 @@ class SqliteAppDataStore implements AppDataStore {
           );
           await db.execute(
             "ALTER TABLE activities ADD COLUMN allocations_json TEXT NOT NULL DEFAULT '[]'",
+          );
+        }
+        if (oldVersion < 5) {
+          await db.execute(
+            "ALTER TABLE activities ADD COLUMN certification_id TEXT NOT NULL DEFAULT ''",
+          );
+          await db.execute(
+            "ALTER TABLE activities ADD COLUMN notes TEXT NOT NULL DEFAULT ''",
           );
         }
       },
@@ -138,6 +148,8 @@ class SqliteAppDataStore implements AppDataStore {
               createdAt: row['created_at']! as String,
               attachmentPath: row['attachment_path'] as String?,
               eventUrl: row['event_url'] as String? ?? '',
+              certificationId: row['certification_id'] as String? ?? '',
+              notes: row['notes'] as String? ?? '',
               allocations: _decodeAllocations(
                 row['allocations_json'] as String? ?? '[]',
               ),
@@ -194,6 +206,8 @@ class SqliteAppDataStore implements AppDataStore {
           'created_at': activity.createdAt,
           'attachment_path': activity.attachmentPath,
           'event_url': activity.eventUrl,
+          'certification_id': activity.certificationId,
+          'notes': activity.notes,
           'allocations_json': jsonEncode(
             activity.allocations.map((item) => item.toJson()).toList(),
           ),

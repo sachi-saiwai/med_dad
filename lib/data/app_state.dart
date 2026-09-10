@@ -105,6 +105,8 @@ class StoredActivity {
     required this.createdAt,
     this.attachmentPath,
     this.eventUrl = '',
+    this.certificationId = '',
+    this.notes = '',
     this.allocations = const [],
   });
 
@@ -118,6 +120,8 @@ class StoredActivity {
   final String createdAt;
   final String? attachmentPath;
   final String eventUrl;
+  final String certificationId;
+  final String notes;
   final List<StoredActivityAllocation> allocations;
 
   StoredActivity copyWith({
@@ -130,6 +134,8 @@ class StoredActivity {
     String? createdAt,
     String? attachmentPath,
     String? eventUrl,
+    String? certificationId,
+    String? notes,
     List<StoredActivityAllocation>? allocations,
   }) {
     return StoredActivity(
@@ -143,6 +149,8 @@ class StoredActivity {
       createdAt: createdAt ?? this.createdAt,
       attachmentPath: attachmentPath ?? this.attachmentPath,
       eventUrl: eventUrl ?? this.eventUrl,
+      certificationId: certificationId ?? this.certificationId,
+      notes: notes ?? this.notes,
       allocations: allocations ?? this.allocations,
     );
   }
@@ -158,6 +166,8 @@ class StoredActivity {
     'createdAt': createdAt,
     'attachmentPath': attachmentPath,
     'eventUrl': eventUrl,
+    'certificationId': certificationId,
+    'notes': notes,
     'allocations': allocations.map((item) => item.toJson()).toList(),
   };
 
@@ -174,6 +184,8 @@ class StoredActivity {
           (json['createdAt'] as String?) ?? DateTime.now().toIso8601String(),
       attachmentPath: json['attachmentPath'] as String?,
       eventUrl: (json['eventUrl'] as String?) ?? '',
+      certificationId: (json['certificationId'] as String?) ?? '',
+      notes: (json['notes'] as String?) ?? '',
       allocations: (json['allocations'] as List<Object?>? ?? const [])
           .whereType<Map>()
           .map(

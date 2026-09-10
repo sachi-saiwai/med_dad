@@ -6,6 +6,7 @@ export interface CertificateExtraction {
   organizer: string;
   credits: number | null;
   category: string;
+  certificationId: string;
   qualificationNames: string[];
   fieldConfidence: Record<string, number>;
   evidence: Record<string, string>;
@@ -97,12 +98,16 @@ export const deterministicCertificateExtraction = (
     evidence.credits = creditEvidence.slice(0, 300);
   }
   set('category', category, categoryEvidence, 0.68);
+  const idEvidence = findLine(/(?:認定ID|証明書番号|参加証番号|受講番号|単位認定番号)\s*[：:]?\s*\d{10}/u);
+  const certificationId = idEvidence.match(/(?:認定ID|証明書番号|参加証番号|受講番号|単位認定番号)\s*[：:]?\s*(\d{10})/u)?.[1] || '';
+  set('certificationId', certificationId, idEvidence, 0.9);
   return {
     title,
     date,
     organizer,
     credits: credits !== null && Number.isFinite(credits) ? credits : null,
     category,
+    certificationId,
     qualificationNames: [],
     fieldConfidence,
     evidence,
@@ -160,6 +165,7 @@ const sanitizeAiExtraction = (
     organizer,
     credits: resolvedCredits,
     category,
+    certificationId: fallback.certificationId,
     qualificationNames: stringList(value.qualificationNames, 20, 200).filter((name) =>
       allowedQualifications.has(name),
     ),
