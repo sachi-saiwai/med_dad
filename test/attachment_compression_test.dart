@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -106,5 +107,59 @@ void main() {
   test('explains why an oversized file was rejected', () {
     expect(attachmentTooLargeMessage('application/pdf'), contains('PDF'));
     expect(attachmentTooLargeMessage('image/jpeg'), contains('撮り直して'));
+  });
+
+  test('scaledSize uses decoded pixel dimensions', () {
+    expect(scaledSize(width: 4032, height: 3024, maxDimension: 2600), (
+      width: 2600,
+      height: 1950,
+    ));
+    expect(scaledSize(width: 800, height: 600, maxDimension: 2600), (
+      width: 800,
+      height: 600,
+    ));
+  });
+
+  test(
+    'constrains the long edge from the decoded image, not ImageDescriptor',
+    () async {
+      final original = _noisyJpeg(width: 800, height: 400);
+      final constrained = await constrainAttachmentDimension(
+        PickedAttachment(
+          displayName: 'IMG_0042.HEIC',
+          bytes: original,
+          contentType: 'image/jpeg',
+        ),
+        maxDimension: 200,
+      );
+
+      expect(constrained.displayName, 'IMG_0042.jpg');
+      expect(constrained.contentType, 'image/jpeg');
+      final codec = await ui.instantiateImageCodec(constrained.bytes!);
+      try {
+        final image = (await codec.getNextFrame()).image;
+        try {
+          expect(image.width, 200);
+          expect(image.height, 100);
+        } finally {
+          image.dispose();
+        }
+      } finally {
+        codec.dispose();
+      }
+    },
+  );
+
+  test('keeps a photo whose decoded long edge already fits', () async {
+    final attachment = PickedAttachment(
+      displayName: 'small.jpg',
+      bytes: _noisyJpeg(width: 120, height: 80),
+      contentType: 'image/jpeg',
+    );
+
+    expect(
+      await constrainAttachmentDimension(attachment, maxDimension: 200),
+      same(attachment),
+    );
   });
 }

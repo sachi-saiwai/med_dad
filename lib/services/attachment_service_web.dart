@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'attachment_compression.dart';
 import 'attachment_service.dart';
 
 AttachmentService createPlatformAttachmentService() => WebAttachmentService();
@@ -25,16 +26,20 @@ class WebAttachmentService implements AttachmentService {
     }
     final image = await _imagePicker.pickImage(
       source: source == 'カメラ撮影' ? ImageSource.camera : ImageSource.gallery,
-      // image_picker_for_web ignores the resize options, so oversized photos
-      // are handled by ShrinkingAttachmentService instead.
-      imageQuality: 92,
+      // image_picker_for_web ignores these; constrainAttachmentDimension
+      // enforces the long-edge cap from the decoded pixel size instead.
+      maxWidth: attachmentMaxDimension.toDouble(),
+      maxHeight: attachmentMaxDimension.toDouble(),
+      imageQuality: 88,
       requestFullMetadata: false,
     );
     if (image == null) return null;
-    return PickedAttachment(
-      displayName: image.name,
-      bytes: await image.readAsBytes(),
-      contentType: image.mimeType ?? _imageContentType(image.name),
+    return constrainAttachmentDimension(
+      PickedAttachment(
+        displayName: image.name,
+        bytes: await image.readAsBytes(),
+        contentType: image.mimeType ?? _imageContentType(image.name),
+      ),
     );
   }
 }
