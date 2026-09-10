@@ -6720,6 +6720,15 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         organizer: '県医師会',
         status: '確定',
         credits: '1単位',
+        source: 'カメラ撮影',
+        createdAt: '2026-07-12T21:10:00.000',
+        allocations: [
+          _ActivityAllocationView(
+            qualificationName: '内科専門医',
+            credits: '1単位',
+            category: '医療安全',
+          ),
+        ],
       ),
       const _ActivityData(
         id: 'sample-3',
@@ -6728,6 +6737,15 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         organizer: '循環器学会',
         status: '確定',
         credits: '3単位',
+        source: '写真ライブラリ',
+        createdAt: '2026-06-28T18:40:00.000',
+        allocations: [
+          _ActivityAllocationView(
+            qualificationName: '内科専門医',
+            credits: '3単位',
+            category: '共通講習',
+          ),
+        ],
       ),
       const _ActivityData(
         id: 'sample-4',
@@ -6747,49 +6765,46 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         credits: '5単位',
         eventUrl: 'https://www.naika.or.jp/',
         qualificationNames: '内科専門医',
+        source: '参加予定',
+        createdAt: '2026-06-01T09:00:00.000',
+        allocations: [
+          _ActivityAllocationView(
+            qualificationName: '内科専門医',
+            credits: '5単位',
+            category: '学術集会参加',
+          ),
+        ],
       ),
     ];
     final activities = widget.controller.demoMode
         ? sampleActivities
-        : widget.controller.snapshot.activities
-              .map(
-                (item) => _ActivityData(
-                  id: item.id,
-                  title: item.title,
-                  date: item.date.isEmpty ? '日付未入力' : item.date,
-                  organizer: item.organizer.isEmpty ? '主催者未入力' : item.organizer,
-                  status: item.status,
-                  credits: item.credits > 0
-                      ? '${_formatNumber(item.credits)}単位'
-                      : '単位未確認',
-                  needsReview: item.status == '下書き' || item.status == '要確認',
-                  eventUrl: item.eventUrl,
-                  certificationId: item.certificationId,
-                  notes: item.notes,
-                  qualificationNames:
-                      item.allocations.isEmpty &&
-                          widget.controller.snapshot.qualifications.length == 1
-                      ? widget.controller.snapshot.qualifications.single.name
-                      : item.allocations
-                            .map(
-                              (allocation) => widget
-                                  .controller
-                                  .snapshot
-                                  .qualifications
-                                  .where(
-                                    (qualification) =>
-                                        qualification.id ==
-                                        allocation.qualificationId,
-                                  )
-                                  .firstOrNull
-                                  ?.name,
-                            )
-                            .whereType<String>()
-                            .toSet()
-                            .join('、'),
-                ),
-              )
-              .toList();
+        : widget.controller.snapshot.activities.map((item) {
+            final allocations = _allocationsForActivity(
+              item,
+              widget.controller.snapshot,
+            );
+            return _ActivityData(
+              id: item.id,
+              title: item.title,
+              date: item.date.isEmpty ? '日付未入力' : item.date,
+              organizer: item.organizer.isEmpty ? '主催者未入力' : item.organizer,
+              status: item.status,
+              credits: item.credits > 0
+                  ? '${_formatNumber(item.credits)}単位'
+                  : '単位未確認',
+              needsReview: item.status == '下書き' || item.status == '要確認',
+              eventUrl: item.eventUrl,
+              certificationId: item.certificationId,
+              notes: item.notes,
+              attachmentPath: item.attachmentPath,
+              source: item.source,
+              createdAt: item.createdAt,
+              allocations: allocations,
+              qualificationNames: allocations
+                  .map((allocation) => allocation.qualificationName)
+                  .join('、'),
+            );
+          }).toList();
     final filtered = activities.where((item) {
       final matchesFilter = switch (_filter) {
         ActivityFilter.all => true,
@@ -6908,6 +6923,10 @@ class _ActivityData {
     this.certificationId = '',
     this.notes = '',
     this.qualificationNames = '',
+    this.attachmentPath,
+    this.source = '',
+    this.createdAt = '',
+    this.allocations = const [],
   });
 
   final String id;
@@ -6921,6 +6940,56 @@ class _ActivityData {
   final String certificationId;
   final String notes;
   final String qualificationNames;
+  final String? attachmentPath;
+  final String source;
+  final String createdAt;
+  final List<_ActivityAllocationView> allocations;
+}
+
+class _ActivityAllocationView {
+  const _ActivityAllocationView({
+    required this.qualificationName,
+    required this.credits,
+    required this.category,
+  });
+
+  final String qualificationName;
+  final String credits;
+  final String category;
+}
+
+List<_ActivityAllocationView> _allocationsForActivity(
+  StoredActivity activity,
+  AppSnapshot snapshot,
+) {
+  var allocations = activity.allocations;
+  if (allocations.isEmpty && snapshot.qualifications.length == 1) {
+    allocations = [
+      StoredActivityAllocation(
+        qualificationId: snapshot.qualifications.single.id,
+        credits: activity.credits,
+        category: '未分類',
+      ),
+    ];
+  }
+  return [
+    for (final allocation in allocations)
+      if (allocation.qualificationId.isNotEmpty)
+        _ActivityAllocationView(
+          qualificationName:
+              snapshot.qualifications
+                  .where((item) => item.id == allocation.qualificationId)
+                  .firstOrNull
+                  ?.name ??
+              '不明な資格',
+          credits: allocation.credits > 0
+              ? '${_formatNumber(allocation.credits)}単位'
+              : '単位未確認',
+          category: allocation.category.trim().isEmpty
+              ? '未分類'
+              : allocation.category.trim(),
+        ),
+  ];
 }
 
 class _ActivityCard extends StatelessWidget {
@@ -7744,94 +7813,442 @@ void _showActivitySheet(
 ) {
   showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
     showDragHandle: true,
-    builder: (context) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(activity.title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          Text(
-            '${activity.date} ・ ${activity.organizer}',
-            style: const TextStyle(color: _inkSoft),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${activity.status} ・ ${activity.credits}',
-            style: const TextStyle(
-              color: _primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 18),
-          if (activity.certificationId.isNotEmpty)
-            _SettingsTile(
-              icon: Icons.badge_outlined,
-              title: '認定ID（10桁）',
-              subtitle: activity.certificationId,
-              onTap: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: activity.certificationId),
-                );
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('認定IDをコピーしました')));
-              },
-            ),
-          if (activity.notes.isNotEmpty)
-            _SettingsTile(
-              icon: Icons.notes_outlined,
-              title: 'その他',
-              subtitle: activity.notes,
-              onTap: _noop,
-            ),
-          if (activity.eventUrl.isNotEmpty)
-            _SettingsTile(
-              icon: Icons.open_in_new_rounded,
-              title: '学会・イベントサイトを開く',
-              subtitle: activity.eventUrl,
-              onTap: () =>
-                  unawaited(_openActivityEvent(context, activity.eventUrl)),
-            ),
-          if (activity.status != '参加予定')
-            const _SettingsTile(
-              icon: Icons.image_outlined,
-              title: '証明書画像を見る',
-              onTap: _noop,
-            ),
-          _SettingsTile(
-            icon: Icons.account_tree_outlined,
-            title: '資格への割当を見る',
-            subtitle: activity.qualificationNames.isEmpty
-                ? '割当なし'
-                : activity.qualificationNames,
-            onTap: _noop,
-          ),
-          const _SettingsTile(
-            icon: Icons.history_rounded,
-            title: '変更履歴を見る',
-            onTap: _noop,
-          ),
-          if (activity.status == '参加予定') ...[
+    builder: (context) => SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(activity.title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () => unawaited(
-                _confirmPlannedActivity(context, activity.id, controller),
-              ),
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              label: const Text('参加済みにしてポイントを確定'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
+            Text(
+              '${activity.date} ・ ${activity.organizer}',
+              style: const TextStyle(color: _inkSoft),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${activity.status} ・ ${activity.credits}',
+              style: const TextStyle(
+                color: _primary,
+                fontWeight: FontWeight.w700,
               ),
             ),
+            const SizedBox(height: 18),
+            if (activity.certificationId.isNotEmpty)
+              _SettingsTile(
+                icon: Icons.badge_outlined,
+                title: '認定ID（10桁）',
+                subtitle: activity.certificationId,
+                onTap: () async {
+                  await Clipboard.setData(
+                    ClipboardData(text: activity.certificationId),
+                  );
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('認定IDをコピーしました')));
+                },
+              ),
+            if (activity.notes.isNotEmpty)
+              _SettingsTile(
+                icon: Icons.notes_outlined,
+                title: 'その他',
+                subtitle: activity.notes,
+                onTap: _noop,
+              ),
+            if (activity.eventUrl.isNotEmpty)
+              _SettingsTile(
+                icon: Icons.open_in_new_rounded,
+                title: '学会・イベントサイトを開く',
+                subtitle: activity.eventUrl,
+                onTap: () =>
+                    unawaited(_openActivityEvent(context, activity.eventUrl)),
+              ),
+            if (activity.status != '参加予定')
+              _SettingsTile(
+                icon: Icons.image_outlined,
+                title: '証明書画像を見る',
+                subtitle:
+                    activity.attachmentPath == null && !controller.demoMode
+                    ? '画像なし'
+                    : null,
+                onTap: () =>
+                    _openActivityAttachment(context, activity, controller),
+              ),
+            _SettingsTile(
+              icon: Icons.account_tree_outlined,
+              title: '資格への割当を見る',
+              subtitle: activity.qualificationNames.isEmpty
+                  ? '割当なし'
+                  : activity.qualificationNames,
+              onTap: () => _showActivityAllocations(context, activity),
+            ),
+            _SettingsTile(
+              icon: Icons.history_rounded,
+              title: '変更履歴を見る',
+              onTap: () => _showActivityHistory(context, activity),
+            ),
+            if (activity.status == '参加予定') ...[
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => unawaited(
+                  _confirmPlannedActivity(context, activity.id, controller),
+                ),
+                icon: const Icon(Icons.check_circle_outline_rounded),
+                label: const Text('参加済みにしてポイントを確定'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     ),
   );
+}
+
+void _openActivityAttachment(
+  BuildContext context,
+  _ActivityData activity,
+  AppController controller,
+) {
+  Navigator.of(context, rootNavigator: true).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ActivityAttachmentScreen(
+        title: activity.title,
+        attachmentPath: activity.attachmentPath,
+        source: activity.source,
+        isDemo: controller.demoMode,
+        controller: controller,
+      ),
+    ),
+  );
+}
+
+void _showActivityAllocations(BuildContext context, _ActivityData activity) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('資格への割当', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(
+              activity.title,
+              style: const TextStyle(color: _inkSoft, fontSize: 14),
+            ),
+            const SizedBox(height: 18),
+            if (activity.allocations.isEmpty)
+              const Text(
+                'この実績はまだ資格に割り当てられていません。',
+                style: TextStyle(color: _inkSoft, height: 1.5),
+              )
+            else
+              Card(
+                child: Column(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < activity.allocations.length;
+                      index++
+                    ) ...[
+                      if (index > 0)
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                      ListTile(
+                        leading: const _IconTile(
+                          icon: Icons.workspace_premium_outlined,
+                          color: _primary,
+                          background: _primarySoft,
+                        ),
+                        title: Text(
+                          activity.allocations[index].qualificationName,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(activity.allocations[index].category),
+                        trailing: Text(
+                          activity.allocations[index].credits,
+                          style: const TextStyle(
+                            color: _primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+void _showActivityHistory(BuildContext context, _ActivityData activity) {
+  final entries = _activityHistoryEntries(activity);
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('変更履歴', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(
+              activity.title,
+              style: const TextStyle(color: _inkSoft, fontSize: 14),
+            ),
+            const SizedBox(height: 18),
+            Card(
+              child: Column(
+                children: [
+                  for (var index = 0; index < entries.length; index++) ...[
+                    if (index > 0)
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: _IconTile(
+                        icon: entries[index].icon,
+                        color: _primary,
+                        background: _primarySoft,
+                      ),
+                      title: Text(
+                        entries[index].title,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Text(entries[index].detail),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _ActivityHistoryEntry {
+  const _ActivityHistoryEntry({
+    required this.title,
+    required this.detail,
+    required this.icon,
+  });
+
+  final String title;
+  final String detail;
+  final IconData icon;
+}
+
+List<_ActivityHistoryEntry> _activityHistoryEntries(_ActivityData activity) {
+  final registeredAt = _formatStoredDateTime(activity.createdAt);
+  final sourceLabel = activity.source.trim().isEmpty
+      ? '登録方法は記録されていません'
+      : '${activity.source}で登録';
+  return [
+    _ActivityHistoryEntry(
+      title: '実績を登録',
+      detail: registeredAt == null
+          ? sourceLabel
+          : '$sourceLabel ・ $registeredAt',
+      icon: Icons.add_circle_outline_rounded,
+    ),
+    if (activity.status == '確定' && activity.source == '参加予定')
+      const _ActivityHistoryEntry(
+        title: '参加済みに変更',
+        detail: '予定ポイントを現在ポイントへ移しました',
+        icon: Icons.check_circle_outline_rounded,
+      ),
+    _ActivityHistoryEntry(
+      title: '現在の状態',
+      detail: '${activity.status} ・ ${activity.credits}',
+      icon: Icons.info_outline_rounded,
+    ),
+  ];
+}
+
+String? _formatStoredDateTime(String value) {
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) return null;
+  final local = parsed.toLocal();
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${local.year}/${two(local.month)}/${two(local.day)} '
+      '${two(local.hour)}:${two(local.minute)}';
+}
+
+class ActivityAttachmentScreen extends StatefulWidget {
+  const ActivityAttachmentScreen({
+    super.key,
+    required this.title,
+    required this.controller,
+    this.attachmentPath,
+    this.source = '',
+    this.isDemo = false,
+  });
+
+  final String title;
+  final AppController controller;
+  final String? attachmentPath;
+  final String source;
+  final bool isDemo;
+
+  @override
+  State<ActivityAttachmentScreen> createState() =>
+      _ActivityAttachmentScreenState();
+}
+
+class _ActivityAttachmentScreenState extends State<ActivityAttachmentScreen> {
+  bool _loading = false;
+  PickedAttachment? _attachment;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isDemo) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    }
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final attachment = await widget.controller.loadActivityAttachment(
+        widget.attachmentPath,
+      );
+      if (!mounted) return;
+      setState(() => _attachment = attachment);
+    } on CloudApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    } on Object {
+      if (!mounted) return;
+      setState(() => _error = '証明書画像を表示できませんでした。');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  bool get _isPdf {
+    final type = _attachment?.contentType ?? '';
+    final name = _attachment?.displayName.toLowerCase() ?? '';
+    return type == 'application/pdf' || name.endsWith('.pdf');
+  }
+
+  bool get _isImage {
+    final type = _attachment?.contentType ?? '';
+    return type.startsWith('image/');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('証明書画像'), backgroundColor: _canvas),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              children: [
+                Text(
+                  widget.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                if (widget.isDemo)
+                  _CertificatePreview(
+                    source: widget.source.isEmpty ? 'カメラ撮影' : widget.source,
+                    fileName: 'sample-certificate.jpg',
+                    hasReadResult: true,
+                  )
+                else if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 48),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_error != null)
+                  _ActivityDetailEmpty(
+                    icon: Icons.error_outline_rounded,
+                    message: _error!,
+                  )
+                else if (_attachment?.bytes != null && _isImage)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: InteractiveViewer(
+                      child: Image.memory(_attachment!.bytes!),
+                    ),
+                  )
+                else if (_attachment != null && _isPdf)
+                  _ActivityDetailEmpty(
+                    icon: Icons.picture_as_pdf_outlined,
+                    message:
+                        '${_attachment!.displayName.isEmpty ? 'PDF' : _attachment!.displayName} を登録済みです。この画面ではプレビューできません。',
+                  )
+                else
+                  const _ActivityDetailEmpty(
+                    icon: Icons.image_not_supported_outlined,
+                    message: 'この実績には証明書画像がありません。手入力や参加予定の場合は、画像がないことがあります。',
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityDetailEmpty extends StatelessWidget {
+  const _ActivityDetailEmpty({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: _inkSoft, size: 36),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _inkSoft, height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 Future<void> _confirmPlannedActivity(

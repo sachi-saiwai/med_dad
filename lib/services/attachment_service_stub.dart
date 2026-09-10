@@ -7,3 +7,5 @@ class UnsupportedAttachmentService implements AttachmentService {
   @override
   Future<PickedAttachment?> pick(String source) async => null;
 }
+
+Future<PickedAttachment?> readStoredAttachment(String path) async => null;

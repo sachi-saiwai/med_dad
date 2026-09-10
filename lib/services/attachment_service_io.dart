@@ -62,6 +62,17 @@ class IoAttachmentService implements AttachmentService {
   }
 }
 
+Future<PickedAttachment?> readStoredAttachment(String storedPath) async {
+  final file = File(storedPath);
+  if (!await file.exists()) return null;
+  return PickedAttachment(
+    displayName: path.basename(storedPath),
+    path: storedPath,
+    bytes: await file.readAsBytes(),
+    contentType: _contentTypeFor(storedPath),
+  );
+}
+
 String _contentTypeFor(String fileName) {
   final extension = path.extension(fileName).toLowerCase();
   return switch (extension) {

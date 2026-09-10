@@ -97,6 +97,7 @@ class CloudDataService {
     Map<String, String>? query,
     Object? body,
     String? authorizationToken,
+    String accept = 'application/json',
   }) async {
     Future<http.Response> send({required bool forceRefresh}) async {
       final token =
@@ -111,7 +112,7 @@ class CloudDataService {
       }
       final request = http.Request(method, _uri(path, query));
       request.headers['Authorization'] = 'Bearer $token';
-      request.headers['Accept'] = 'application/json';
+      request.headers['Accept'] = accept;
       if (body != null) {
         request.headers['Content-Type'] = 'application/json; charset=utf-8';
         request.body = jsonEncode(body);
@@ -246,6 +247,27 @@ class CloudDataService {
     return data['id']! as String;
   }
 
+  Future<PickedAttachment> fetchAttachment(String id) async {
+    final response = await _authorized(
+      'GET',
+      '/api/v1/attachments',
+      query: {'id': id},
+      accept: '*/*',
+    );
+    if (response.statusCode != 200) _throwResponse(response);
+    final bytes = response.bodyBytes;
+    if (bytes.isEmpty) {
+      throw const CloudApiException('attachment_not_found', '証明書画像が見つかりません。');
+    }
+    return PickedAttachment(
+      displayName: _fileNameFromDisposition(
+        response.headers['content-disposition'],
+      ),
+      bytes: bytes,
+      contentType: response.headers['content-type']?.split(';').first.trim(),
+    );
+  }
+
   Future<CertificateExtraction> extractCertificate({
     required String ocrText,
     required List<String> qualificationNames,
@@ -347,6 +369,7 @@ String _messageFor(String code, String? serverMessage) => switch (code) {
   'invitation_required' => 'このアカウントには招待コードが必要です。',
   'invalid_or_expired_invite' => '招待コードが正しくないか、有効期限が切れています。',
   'invalid_invite_code' => '招待コードの形式を確認してください。',
+  'attachment_not_found' => '証明書画像が見つかりません。',
   'attachment_too_large' => '添付できるファイルは3MBまでです。',
   'attachment_content_mismatch' => 'ファイルの内容と形式が一致しません。別のファイルを選んでください。',
   'unsupported_attachment_type' => 'このファイル形式には対応していません。',
@@ -356,3 +379,15 @@ String _messageFor(String code, String? serverMessage) => switch (code) {
         ? serverMessage!
         : 'サーバー処理に失敗しました。時間をおいてもう一度お試しください。',
 };
+
+String _fileNameFromDisposition(String? value) {
+  if (value == null || value.trim().isEmpty) return 'certificate';
+  final encoded = RegExp(r"filename\*=UTF-8''([^;]+)").firstMatch(value);
+  if (encoded != null) {
+    return Uri.decodeComponent(encoded.group(1)!);
+  }
+  final quoted = RegExp(r'filename="([^"]+)"').firstMatch(value);
+  if (quoted != null) return quoted.group(1)!;
+  final plain = RegExp(r'filename=([^;]+)').firstMatch(value);
+  return plain?.group(1)?.trim() ?? 'certificate';
+}

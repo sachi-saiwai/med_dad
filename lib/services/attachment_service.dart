@@ -53,3 +53,6 @@ class ShrinkingAttachmentService implements AttachmentService {
 
 AttachmentService createAttachmentService() =>
     ShrinkingAttachmentService(platform.createPlatformAttachmentService());
+
+Future<PickedAttachment?> readStoredAttachment(String path) =>
+    platform.readStoredAttachment(path);

@@ -340,6 +340,23 @@ class AppController extends ChangeNotifier {
     return attachment.path;
   }
 
+  Future<PickedAttachment?> loadActivityAttachment(
+    String? attachmentPath,
+  ) async {
+    if (attachmentPath == null || attachmentPath.trim().isEmpty) return null;
+    if (attachmentPath.startsWith('cloud:')) {
+      final cloud = _cloud;
+      if (cloud == null) {
+        throw const CloudApiException(
+          'cloud_not_connected',
+          '証明書を表示するにはログインしてください。',
+        );
+      }
+      return cloud.fetchAttachment(attachmentPath.substring('cloud:'.length));
+    }
+    return readStoredAttachment(attachmentPath);
+  }
+
   Future<CertificateExtraction> extractCertificate({
     required String ocrText,
     PickedAttachment? attachment,

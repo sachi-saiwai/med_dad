@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "medlicense-pwa";
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const APP_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const APP_SHELL = [
   "/",

@@ -445,6 +445,45 @@ void main() {
     expect(find.text('反映先'), findsOneWidget);
   });
 
+  testWidgets(
+    'activity detail actions open attachment, allocations, and history',
+    (tester) async {
+      await tester.pumpWidget(const MedLicenseApp());
+      await openSampleHome(tester);
+
+      await tester.tap(find.byIcon(Icons.receipt_long_outlined));
+      await tester.pumpAndSettle();
+      expect(find.text('登録した参加証と単位を確認できます'), findsOneWidget);
+
+      await tester.tap(find.text('医療安全講習会'));
+      await tester.pumpAndSettle();
+      expect(find.text('証明書画像を見る'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('資格への割当を見る'));
+      await tester.tap(find.text('資格への割当を見る'));
+      await tester.pumpAndSettle();
+      expect(find.text('資格への割当'), findsOneWidget);
+      expect(find.text('医療安全'), findsOneWidget);
+      Navigator.of(tester.element(find.text('資格への割当'))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('変更履歴を見る'));
+      await tester.tap(find.text('変更履歴を見る'));
+      await tester.pumpAndSettle();
+      expect(find.text('変更履歴'), findsOneWidget);
+      expect(find.text('実績を登録'), findsOneWidget);
+      expect(find.textContaining('カメラ撮影で登録'), findsOneWidget);
+      Navigator.of(tester.element(find.text('変更履歴'))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('証明書画像を見る'));
+      await tester.tap(find.text('証明書画像を見る'));
+      await tester.pumpAndSettle();
+      expect(find.text('証明書画像'), findsOneWidget);
+      expect(find.text('医療安全講習会'), findsWidgets);
+    },
+  );
+
   testWidgets('qualification detail automatically loads a published rule', (
     tester,
   ) async {

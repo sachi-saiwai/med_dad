@@ -44,6 +44,8 @@ class WebAttachmentService implements AttachmentService {
   }
 }
 
+Future<PickedAttachment?> readStoredAttachment(String path) async => null;
+
 String _imageContentType(String fileName) {
   final lower = fileName.toLowerCase();
   if (lower.endsWith('.png')) return 'image/png';
