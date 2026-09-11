@@ -11,6 +11,7 @@ import 'services/auth_service.dart';
 import 'services/certificate_extraction.dart';
 import 'services/certificate_ocr_service.dart';
 import 'services/cloud_data_service.dart';
+import 'services/credit_recommendation.dart';
 import 'services/official_rule_service.dart';
 
 /// 文字色。長文でも疲れにくいよう白背景とのコントラストを高めに取っている。
@@ -5299,12 +5300,14 @@ class CertificateReviewScreen extends StatefulWidget {
     required this.controller,
     this.attachment,
     this.ocrService,
+    this.officialRuleLoader,
   });
 
   final String source;
   final AppController controller;
   final PickedAttachment? attachment;
   final CertificateOcrService? ocrService;
+  final OfficialRuleLoader? officialRuleLoader;
 
   @override
   State<CertificateReviewScreen> createState() =>
@@ -5325,9 +5328,13 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
   final Set<String> _selectedQualificationIds = {};
   bool _saving = false;
   bool _reading = false;
+  bool _loadingRules = false;
+  bool _didAutoApplyRecommendation = false;
   CertificateExtraction? _extraction;
   String? _readError;
   String? _ocrEngine;
+  final Map<String, List<CreditRequirementTarget>> _requirementTargets = {};
+  List<CreditRecommendation> _recommendations = const [];
 
   @override
   void initState() {
@@ -5354,16 +5361,29 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
     _selectedQualificationIds.addAll(
       widget.controller.snapshot.qualifications.map((item) => item.id),
     );
-    if (!usesSample &&
-        widget.attachment != null &&
-        widget.source != '手入力' &&
-        widget.source != '参加予定') {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _readAttachment());
-    }
+    _eventController.addListener(_refreshRecommendations);
+    _organizerController.addListener(_refreshRecommendations);
+    _categoryController.addListener(_refreshRecommendations);
+    _creditsController.addListener(_refreshRecommendations);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_loadOfficialRequirements());
+      if (!usesSample &&
+          widget.attachment != null &&
+          widget.source != '手入力' &&
+          widget.source != '参加予定') {
+        unawaited(_readAttachment());
+      } else {
+        _refreshRecommendations();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _eventController.removeListener(_refreshRecommendations);
+    _organizerController.removeListener(_refreshRecommendations);
+    _categoryController.removeListener(_refreshRecommendations);
+    _creditsController.removeListener(_refreshRecommendations);
     _eventController.dispose();
     _dateController.dispose();
     _organizerController.dispose();
@@ -5452,6 +5472,138 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
           ..addAll(matched);
       }
     }
+    _refreshRecommendations();
+  }
+
+  Future<void> _loadOfficialRequirements() async {
+    if (_loadingRules) return;
+    setState(() => _loadingRules = true);
+    try {
+      final sources = _recommendationSources();
+      for (final source in sources) {
+        if (_requirementTargets.containsKey(source.id)) continue;
+        if (source.requirements.isNotEmpty) {
+          _requirementTargets[source.id] = source.requirements;
+          continue;
+        }
+        try {
+          final loader = widget.officialRuleLoader;
+          final lookup = loader != null
+              ? await loader(source.name)
+              : await const OfficialRuleService().fetchForQualification(
+                  source.name,
+                );
+          final requirements = lookup.rule?.requirements
+              .map(
+                (item) => CreditRequirementTarget(
+                  label: item.label,
+                  unit: item.unit,
+                  evidence: item.evidence,
+                  mandatory: item.mandatory,
+                ),
+              )
+              .toList(growable: false);
+          if (requirements != null && requirements.isNotEmpty) {
+            _requirementTargets[source.id] = requirements;
+          }
+        } on Object {
+          continue;
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loadingRules = false);
+        _refreshRecommendations();
+      }
+    }
+  }
+
+  List<QualificationRequirementSource> _recommendationSources() {
+    final stored = widget.controller.snapshot.qualifications;
+    if (stored.isNotEmpty) {
+      return [
+        for (final qualification in stored)
+          QualificationRequirementSource(
+            id: qualification.id,
+            name: qualification.name,
+            organization: qualification.organization,
+            requirements: _requirementTargets[qualification.id] ?? const [],
+          ),
+      ];
+    }
+    if (!widget.controller.demoMode) return const [];
+    return [
+      for (final qualification in sampleQualifications)
+        QualificationRequirementSource(
+          id: qualification.name,
+          name: qualification.name,
+          organization: qualification.organization,
+          requirements: [
+            for (final item in qualification.requirements)
+              if (item.label != '総単位')
+                CreditRequirementTarget(
+                  label: item.label,
+                  unit: item.unit,
+                  mandatory: item.note?.contains('必須') == true,
+                ),
+          ],
+        ),
+    ];
+  }
+
+  void _refreshRecommendations() {
+    final credits = double.tryParse(_creditsController.text.trim());
+    final next = recommendCreditAllocations(
+      title: _eventController.text.trim(),
+      organizer: _organizerController.text.trim(),
+      extractedCategory: _categoryController.text.trim(),
+      extractedCredits: credits,
+      sources: _recommendationSources(),
+    );
+    if (!mounted) return;
+    final shouldAutoApply =
+        !_didAutoApplyRecommendation &&
+        _categoryController.text.trim().isEmpty &&
+        next.isNotEmpty &&
+        next.first.score >= 40;
+    setState(() => _recommendations = next);
+    if (shouldAutoApply) {
+      _applyCreditRecommendation(next.first, autoApplied: true);
+    }
+  }
+
+  void _applyCreditRecommendation(
+    CreditRecommendation recommendation, {
+    bool autoApplied = false,
+  }) {
+    _didAutoApplyRecommendation = true;
+    _categoryController.removeListener(_refreshRecommendations);
+    _creditsController.removeListener(_refreshRecommendations);
+    _categoryController.text = recommendation.category;
+    if (recommendation.suggestedCredits != null &&
+        _creditsController.text.trim().isEmpty) {
+      final credits = recommendation.suggestedCredits!;
+      _creditsController.text = credits == credits.roundToDouble()
+          ? credits.toInt().toString()
+          : credits.toString();
+    }
+    if (widget.controller.snapshot.qualifications.any(
+      (item) => item.id == recommendation.qualificationId,
+    )) {
+      _selectedQualificationIds.add(recommendation.qualificationId);
+    }
+    _categoryController.addListener(_refreshRecommendations);
+    _creditsController.addListener(_refreshRecommendations);
+    if (!autoApplied && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${recommendation.qualificationName}の「${recommendation.category}」に割り当てます',
+          ),
+        ),
+      );
+    }
+    if (mounted) setState(() {});
   }
 
   String? _confidenceLabel(String field) {
@@ -5692,6 +5844,14 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                   confidence: _confidenceLabel('category'),
                   needsCheck: _needsCheck('category'),
                 ),
+                if (_loadingRules || _recommendations.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  _CreditRecommendationPanel(
+                    loading: _loadingRules && _recommendations.isEmpty,
+                    recommendations: _recommendations,
+                    onSelected: _applyCreditRecommendation,
+                  ),
+                ],
                 if (isPlanned) ...[
                   const SizedBox(height: 14),
                   _LabeledField(
@@ -5740,9 +5900,17 @@ class _CertificateReviewScreenState extends State<CertificateReviewScreen> {
                       selected: _selectedQualificationIds.contains(
                         qualification.id,
                       ),
-                      reason: isPlanned
-                          ? '参加後に参加証を登録すると確定ポイントへ移せます'
-                          : 'この資格の現在ポイントへ反映します',
+                      reason:
+                          _recommendations
+                              .where(
+                                (item) =>
+                                    item.qualificationId == qualification.id,
+                              )
+                              .map((item) => item.reason)
+                              .firstOrNull ??
+                          (isPlanned
+                              ? '参加後に参加証を登録すると確定ポイントへ移せます'
+                              : 'この資格の現在ポイントへ反映します'),
                       onChanged: (value) => setState(() {
                         if (value) {
                           _selectedQualificationIds.add(qualification.id);
@@ -6215,6 +6383,100 @@ class _LabeledField extends StatelessWidget {
                 : null,
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _CreditRecommendationPanel extends StatelessWidget {
+  const _CreditRecommendationPanel({
+    required this.loading,
+    required this.recommendations,
+    required this.onSelected,
+  });
+
+  final bool loading;
+  final List<CreditRecommendation> recommendations;
+  final ValueChanged<CreditRecommendation> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '単位認定の候補',
+          style: TextStyle(color: _ink, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          '登録資格の公式要項と、読み取ったイベント名を照合しています',
+          style: TextStyle(color: _inkSoft, fontSize: 13),
+        ),
+        const SizedBox(height: 10),
+        if (loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: LinearProgressIndicator(),
+          )
+        else
+          ...recommendations.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  key: ValueKey(
+                    'credit-recommendation-${item.qualificationId}-${item.category}',
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => onSelected(item),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _primary.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.category,
+                          style: const TextStyle(
+                            color: _ink,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.qualificationName,
+                          style: const TextStyle(
+                            color: _primary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.reason,
+                          style: const TextStyle(
+                            color: _inkSoft,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

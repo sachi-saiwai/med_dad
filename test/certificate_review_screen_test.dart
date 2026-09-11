@@ -5,6 +5,28 @@ import 'package:medlicense/data/app_state.dart';
 import 'package:medlicense/med_license_app.dart';
 import 'package:medlicense/services/attachment_service.dart';
 import 'package:medlicense/services/certificate_ocr_service.dart';
+import 'package:medlicense/services/official_rule_service.dart';
+
+Future<OfficialRuleLookup> _fakeOfficialRuleLoader(String name) async {
+  return OfficialRuleLookup(
+    qualificationFound: true,
+    rule: OfficialRenewalRule(
+      id: 1,
+      systemType: '専門医',
+      requirements: const [
+        OfficialRequirement(label: '医療安全講習会', unit: '回', mandatory: true),
+        OfficialRequirement(label: '専門医共通講習', unit: '単位', mandatory: true),
+      ],
+      mandatoryNotes: const [],
+      otherConditions: const [],
+      source: OfficialRuleSource(
+        title: 'テスト要項',
+        url: 'https://example.jp/rule',
+        checkedAt: DateTime.utc(2026, 1, 1),
+      ),
+    ),
+  );
+}
 
 class _FakeCertificateOcrService implements CertificateOcrService {
   @override
@@ -55,6 +77,7 @@ void main() {
             contentType: 'image/jpeg',
           ),
           ocrService: _FakeCertificateOcrService(),
+          officialRuleLoader: _fakeOfficialRuleLoader,
         ),
       ),
     );
@@ -112,7 +135,11 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: CertificateReviewScreen(source: '手入力', controller: controller),
+        home: CertificateReviewScreen(
+          source: '手入力',
+          controller: controller,
+          officialRuleLoader: _fakeOfficialRuleLoader,
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -145,6 +172,68 @@ void main() {
           .controller
           ?.text,
       '2026/08/18',
+    );
+  });
+
+  testWidgets('公式要項とイベント名から単位認定をレコメンドする', (tester) async {
+    final controller = AppController.memory();
+    await controller.completeSetup(
+      displayName: 'テスト利用者',
+      qualifications: const [
+        StoredQualification(
+          id: 'qualification-1',
+          name: '外科専門医',
+          organization: '日本外科学会',
+          licenseNumber: '',
+          deadline: '2029/03/31',
+        ),
+      ],
+      notificationsEnabled: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CertificateReviewScreen(
+          source: '手入力',
+          controller: controller,
+          officialRuleLoader: _fakeOfficialRuleLoader,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('certificate-field-研修会・イベント名')),
+      '第12回 医療安全研修会',
+    );
+    await tester.pumpAndSettle();
+    final recommendation = find.text('単位認定の候補');
+    for (
+      var attempt = 0;
+      attempt < 12 && recommendation.evaluate().isEmpty;
+      attempt++
+    ) {
+      await tester.drag(find.byType(ListView), const Offset(0, -220));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('単位認定の候補'), findsOneWidget);
+    expect(find.text('医療安全講習会'), findsWidgets);
+    await tester.tap(
+      find.byKey(
+        const ValueKey('credit-recommendation-qualification-1-医療安全講習会'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('certificate-field-単位区分（任意）')),
+          )
+          .controller
+          ?.text,
+      '医療安全講習会',
     );
   });
 }
