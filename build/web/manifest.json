@@ -6,7 +6,7 @@
     "scope": "/",
     "display": "standalone",
     "background_color": "#F2F5F9",
-    "theme_color": "#1A5FA8",
+    "theme_color": "#F2F5F9",
     "description": "医療職の資格更新期限・必要単位・研修実績・参加証を、ひとつに整理できる資格管理アプリです。",
     "lang": "ja-JP",
     "categories": ["medical", "productivity", "utilities"],
