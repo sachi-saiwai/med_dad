@@ -31,6 +31,9 @@ interface QualificationRow {
   source_title: string | null;
   source_url: string | null;
   checked_at: string | null;
+  previous_rule_id: string | null;
+  previous_required_total_credits: string | null;
+  previous_structured_data: Record<string, unknown> | null;
 }
 
 const serialize = (row: QualificationRow) => ({
@@ -61,6 +64,15 @@ const serialize = (row: QualificationRow) => ({
         details: row.structured_data,
         confidence: row.confidence ? Number(row.confidence) : null,
         publishedAt: row.published_at,
+        previousRevision: row.previous_rule_id
+          ? {
+              id: Number(row.previous_rule_id),
+              requiredTotalCredits: row.previous_required_total_credits
+                ? Number(row.previous_required_total_credits)
+                : null,
+              details: row.previous_structured_data,
+            }
+          : null,
         source: {
           title: row.source_title,
           url: row.source_url,
@@ -98,7 +110,9 @@ export default async function handler(
          rule.acquired_year_to, rule.renewal_year_from, rule.renewal_year_to,
          rule.renewal_cycle_years, rule.required_total_credits,
          rule.structured_data, rule.confidence, rule.published_at,
-         rule.source_title, rule.source_url, rule.checked_at
+         rule.source_title, rule.source_url, rule.checked_at,
+         rule.previous_rule_id, rule.previous_required_total_credits,
+         rule.previous_structured_data
        FROM qualifications q
        JOIN organizations o ON o.id = q.organization_id
        LEFT JOIN qualifications parent ON parent.id = q.parent_qualification_id
@@ -107,10 +121,26 @@ export default async function handler(
                 rv.renewal_year_from, rv.renewal_year_to,
                 rv.renewal_cycle_years, rv.required_total_credits, rv.structured_data,
                 rv.confidence, rv.published_at, sd.title AS source_title,
-                sd.source_url, ss.checked_at
+                sd.source_url, ss.checked_at,
+                previous.id AS previous_rule_id,
+                previous.required_total_credits AS previous_required_total_credits,
+                previous.structured_data AS previous_structured_data
            FROM renewal_rule_versions rv
            JOIN source_snapshots ss ON ss.id = rv.source_snapshot_id
            JOIN source_documents sd ON sd.id = ss.source_document_id
+           LEFT JOIN LATERAL (
+             SELECT prior.id, prior.required_total_credits, prior.structured_data
+               FROM renewal_rule_versions prior
+              WHERE prior.qualification_id = rv.qualification_id
+                AND prior.status = 'superseded'
+                AND prior.system_type = rv.system_type
+                AND prior.acquired_year_from IS NOT DISTINCT FROM rv.acquired_year_from
+                AND prior.acquired_year_to IS NOT DISTINCT FROM rv.acquired_year_to
+                AND prior.renewal_year_from IS NOT DISTINCT FROM rv.renewal_year_from
+                AND prior.renewal_year_to IS NOT DISTINCT FROM rv.renewal_year_to
+              ORDER BY prior.published_at DESC NULLS LAST, prior.id DESC
+              LIMIT 1
+           ) previous ON true
           WHERE rv.qualification_id = q.id
             AND rv.status = 'published'
             AND ($3::text IS NULL OR rv.system_type = $3)

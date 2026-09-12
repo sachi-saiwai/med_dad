@@ -6,8 +6,8 @@ FlutterのiPhone/Webアプリに加えて、Vercel Functions、Neon Postgres、P
 
 ## 確認できる画面
 
-- ホーム：期限順の資格カード、現在ポイント、参加予定ポイント、不足条件
-- 資格詳細：現在・予定・見込みポイント、期限、学会会員ID、会員サイト、根拠資料
+- ホーム：期限順の資格カード、現在ポイント、参加予定ポイント、証憑充足状況、不足条件
+- 資格詳細：申請準備チェック、証憑充足率、現在・予定・見込みポイント、3種類の期限、年会費、公式要件の変更影響、根拠資料
 - 参加証登録：画像・PDF添付または手入力、複数資格へのポイント割当、登録結果
 - 参加予定：開催日、予定ポイント、単位区分、学会URLを登録し、参加後に確定ポイントへ移行
 - 実績：検索、参加予定・確定・下書きの状態フィルター
@@ -15,7 +15,13 @@ FlutterのiPhone/Webアプリに加えて、Vercel Functions、Neon Postgres、P
 
 画像・PDFの参加証は、iOSではVision、AndroidではML Kitを使って端末内OCRし、認証済みAPIからOpenAI Responses APIの構造化出力を使って研修名・開催日・主催者・単位・区分・対象資格を自動入力します。端末内OCRテキストは、氏名・会員番号などラベル付きの個人情報を除外してからOpenAIへ送ります。端末内OCRが使えないWeb版、またはOCRに失敗した場合だけ、3MB以下のPDF/JPEG/PNG/WebPをOpenAIへ送ります。スマートフォンで撮った写真はこの上限を超えることが多いため、送信前に長辺2600px・JPEGへ自動で縮小します。Web版の画像選択は `image_picker` の maxWidth を無視するため、デコードした実寸法から同じ長辺制限をかけます（端末内OCRには縮小前の原本を使います）。自動入力は誤る可能性があるため、保存前の確認は必須です。OpenAI未設定時は決定論的な文字列抽出へフォールバックします。
 
-学会の資格番号と会員IDは分けて保存できます。会員サイトURLを登録するとアプリから開けますが、パスワードは保存せず、会員サイトとの自動データ連携は学会ごとの公式API・利用規約を確認して段階的に対応します。
+学会の資格番号と会員IDは分けて保存できます。会員サイトURLを登録するとアプリから開けますが、パスワードは入力項目自体を用意せず保存しません。会員サイトとの自動データ連携は学会ごとの公式API・利用規約を確認して段階的に対応します。
+
+資格有効期限、単位算入期限、更新申請締切は別々登録できます。申請受付期間と年会費状況も含め、単位、必須条件、証憑、公式要件の確認状況から申請準備の要確認項目を表示します。この判定は自己管理支援であり、最終的な申請可否は認定団体の公式情報で確認します。
+
+資格詳細の「更新申請パケット」から、資格・申請情報、単位の区分別集計、更新条件の達成状況、実績・証憑索引、公式根拠をまとめたPDFを保存できます。ZIPを選ぶと、このPDFに加えて登録済み参加証ファイルも `証憑` フォルダへ同梱します。端末・クラウドから取得できないファイルや容量上限を超えたファイルはPDF内で未同梱と明示し、同梱する証憑は合計50MBまでに制限します。
+
+申請パケットの日本語PDFには、OFLで提供されるNoto Sans JPをアプリ内に同梱しています。ライセンス本文は `assets/fonts/OFL.txt` です。
 
 ## 起動
 
@@ -62,10 +68,10 @@ flutter run -d chrome --dart-define-from-file=config/firebase.web.json
 
 本番Webビルドでも同じ `--dart-define-from-file` を付けます。また、Firebase Authenticationの「承認済みドメイン」に本番ドメインを追加してください。`config/firebase.web.json` はGit管理対象外です。
 
-WebリリースビルドではFlutter標準のService Workerを無効にし、このリポジトリのオフライン・Push対応版だけを使用します。
+WebリリースビルドではFlutter標準のService Workerを無効にし、このリポジトリのオフライン・Push対応版だけを使用します。`--no-web-resources-cdn` は必須です。これを省くとCanvasKitがgstaticのCDNから読み込まれ、Service Workerのキャッシュ対象外（同一オリジンのみ）になるため、通信が届かない状態でホーム画面のアプリを開くと何も描画できず真っ白になります。
 
 ```bash
-flutter build web --release --pwa-strategy=none \
+flutter build web --release --pwa-strategy=none --no-web-resources-cdn \
   --dart-define-from-file=config/firebase.web.json
 ```
 
@@ -208,6 +214,6 @@ npm run check:server
 npm run test:server
 flutter analyze
 flutter test
-flutter build web --release --pwa-strategy=none \
+flutter build web --release --pwa-strategy=none --no-web-resources-cdn \
   --dart-define-from-file=config/firebase.web.json
 ```

@@ -45,9 +45,16 @@ void main() {
     expect(googleButton.onPressed, isNull);
   });
 
-  testWidgets('a different account cannot read device data', (tester) async {
+  testWidgets('a different account starts clean on a shared device', (
+    tester,
+  ) async {
     final controller = AppController.memory();
-    await controller.bindToAccount('owner-user');
+    await controller.activateAccount('owner-user');
+    await controller.completeSetup(
+      displayName: '持ち主',
+      qualifications: const [],
+      notificationsEnabled: false,
+    );
     final auth = _FakeAuthService(
       initialUser: const AuthUser(id: 'different-user'),
     );
@@ -58,8 +65,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('別のアカウントのデータがあります'), findsOneWidget);
-    expect(find.text('設定を始める'), findsNothing);
+    expect(find.text('持ち主'), findsNothing);
+    expect(find.text('設定を始める'), findsOneWidget);
   });
 }
 

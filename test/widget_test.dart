@@ -50,6 +50,9 @@ void main() {
     expect(result.creditEntries, hasLength(1));
     expect(result.creditEntries.single.title, '実際に登録した講習');
     expect(result.creditEntries.single.certificationId, isEmpty);
+    expect(result.creditEntries.single.hasEvidence, isFalse);
+    expect(result.evidenceSummary.confirmedActivities, 1);
+    expect(result.evidenceSummary.missingEvidence, 1);
   });
 
   test('stored activity keeps a ten digit certification ID', () {
@@ -428,6 +431,11 @@ void main() {
     );
 
     expect(find.text('単位の内訳'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('学会・発表'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('学会・発表'), findsOneWidget);
 
     await tester.scrollUntilVisible(
@@ -593,6 +601,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('承認済みの更新条件はまだありません'),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('承認済みの更新条件はまだありません'), findsWidgets);
     expect(find.text('再取得する'), findsOneWidget);
   });

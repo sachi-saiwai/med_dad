@@ -55,37 +55,48 @@ class LocalNotificationService implements NotificationService {
     const reminderDays = [365, 180, 90, 30, 7];
     final now = tz.TZDateTime.now(tz.local);
     for (final qualification in qualifications) {
-      final deadline = _parseDeadline(qualification.deadline);
-      if (deadline == null) continue;
-      for (final days in reminderDays) {
-        final scheduled = tz.TZDateTime(
-          tz.local,
-          deadline.year,
-          deadline.month,
-          deadline.day,
-          9,
-        ).subtract(Duration(days: days));
-        if (!scheduled.isAfter(now)) continue;
-        await _plugin.zonedSchedule(
-          id: _notificationId(qualification.id, days),
-          title: '${qualification.name}の更新期限',
-          body: '更新期限まであと$days日です。必要な単位と講習を確認してください。',
-          scheduledDate: scheduled,
-          notificationDetails: const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'qualification_deadlines',
-              '資格の更新期限',
-              channelDescription: '専門医資格の更新期限をお知らせします',
-              importance: Importance.high,
-              priority: Priority.high,
+      final targets = <({String key, String label, String value})>[
+        (key: 'credential', label: '資格有効期限', value: qualification.deadline),
+        (key: 'credit', label: '単位算入期限', value: qualification.creditDeadline),
+        (
+          key: 'application',
+          label: '更新申請締切',
+          value: qualification.applicationDeadline,
+        ),
+      ];
+      for (final target in targets) {
+        final deadline = _parseDeadline(target.value);
+        if (deadline == null) continue;
+        for (final days in reminderDays) {
+          final scheduled = tz.TZDateTime(
+            tz.local,
+            deadline.year,
+            deadline.month,
+            deadline.day,
+            9,
+          ).subtract(Duration(days: days));
+          if (!scheduled.isAfter(now)) continue;
+          await _plugin.zonedSchedule(
+            id: _notificationId(qualification.id, target.key, days),
+            title: '${qualification.name}の${target.label}',
+            body: '${target.label}まであと$days日です。単位・証憑・申請条件を確認してください。',
+            scheduledDate: scheduled,
+            notificationDetails: const NotificationDetails(
+              android: AndroidNotificationDetails(
+                'qualification_deadlines',
+                '資格の更新期限',
+                channelDescription: '専門医資格の更新に関わる期限をお知らせします',
+                importance: Importance.high,
+                priority: Priority.high,
+              ),
+              iOS: DarwinNotificationDetails(
+                threadIdentifier: 'qualification_deadlines',
+              ),
             ),
-            iOS: DarwinNotificationDetails(
-              threadIdentifier: 'qualification_deadlines',
-            ),
-          ),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          payload: qualification.id,
-        );
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            payload: qualification.id,
+          );
+        }
       }
     }
   }
@@ -105,9 +116,9 @@ class LocalNotificationService implements NotificationService {
     return DateTime(year, month, day);
   }
 
-  int _notificationId(String id, int days) {
+  int _notificationId(String id, String deadlineType, int days) {
     var hash = 0x811c9dc5;
-    for (final unit in '$id:$days'.codeUnits) {
+    for (final unit in '$id:$deadlineType:$days'.codeUnits) {
       hash ^= unit;
       hash = (hash * 0x01000193) & 0x7fffffff;
     }

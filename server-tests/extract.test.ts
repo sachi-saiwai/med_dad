@@ -46,7 +46,11 @@ test('structureRenewalRule extracts cycle, total and requirement evidence', () =
     false,
   );
   assert.ok(result.rule.mandatoryNotes.length >= 1);
-  assert.ok(result.confidence >= 0.8);
+  assert.ok(result.confidence >= 0.95);
+  assert.equal(result.rule.confidenceAssessment?.score, result.confidence);
+  assert.ok(result.rule.confidenceAssessment?.factors.some(
+    (factor) => factor.label === '主要項目の整合性' && factor.status === 'confirmed',
+  ));
 });
 
 test('calendar years are not mistaken for a renewal cycle', () => {
@@ -87,5 +91,20 @@ test('linksForDiscovery only follows matching links on the official host', () =>
 
   assert.deepEqual(links, [
     { title: '専門医更新基準', url: 'https://official.example.jp/rule.pdf' },
+  ]);
+});
+
+test('linksForDiscovery requires a qualification-specific keyword when available', () => {
+  const links = linksForDiscovery(
+    [
+      { title: '更新申請', url: 'https://official.example.jp/generic-update.pdf' },
+      { title: '乳腺外科専門医 更新基準', url: 'https://official.example.jp/breast-surgery.pdf' },
+    ],
+    'https://official.example.jp/index.html',
+    ['乳腺外科専門医', '更新'],
+  );
+
+  assert.deepEqual(links, [
+    { title: '乳腺外科専門医 更新基準', url: 'https://official.example.jp/breast-surgery.pdf' },
   ]);
 });

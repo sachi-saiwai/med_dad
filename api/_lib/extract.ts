@@ -25,6 +25,19 @@ export interface RequirementCandidate {
   evidence: string;
 }
 
+export interface ConfidenceFactor {
+  label: string;
+  status: 'confirmed' | 'partial' | 'missing' | 'attention';
+  detail: string;
+}
+
+export interface ConfidenceAssessment {
+  version: 1;
+  score: number;
+  summary: string;
+  factors: ConfidenceFactor[];
+}
+
 export interface StructuredRenewalRule {
   schemaVersion: 1;
   title?: string;
@@ -35,6 +48,7 @@ export interface StructuredRenewalRule {
   mandatoryNotes: string[];
   evidence: string[];
   warnings: string[];
+  confidenceAssessment?: ConfidenceAssessment;
 }
 
 const compactWhitespace = (value: string): string =>
@@ -197,6 +211,106 @@ const requirementCandidates = (blocks: string[]): RequirementCandidate[] => {
   }).slice(0, 30);
 };
 
+const confidenceAssessmentFor = (
+  rule: Omit<StructuredRenewalRule, 'confidenceAssessment'>,
+): ConfidenceAssessment => {
+  const factors: ConfidenceFactor[] = [];
+  let score = 0;
+  const addFactor = (
+    label: string,
+    status: ConfidenceFactor['status'],
+    detail: string,
+    points: number,
+  ): void => {
+    factors.push({ label, status, detail });
+    score += points;
+  };
+
+  if (rule.evidence.length >= 3) {
+    addFactor('原文根拠', 'confirmed', `更新条件に関する原文を${rule.evidence.length}件抽出`, 0.2);
+  } else if (rule.evidence.length > 0) {
+    addFactor('原文根拠', 'partial', `関連する原文は${rule.evidence.length}件のみ`, 0.12);
+  } else {
+    addFactor('原文根拠', 'missing', '更新条件に関する原文を抽出できていません', 0.04);
+  }
+
+  addFactor(
+    '資料タイトル',
+    rule.title ? 'confirmed' : 'missing',
+    rule.title ? '資料タイトルを取得済み' : '資料タイトルを取得できていません',
+    rule.title ? 0.05 : 0,
+  );
+  addFactor(
+    '更新周期',
+    rule.renewalCycleYears !== undefined ? 'confirmed' : 'missing',
+    rule.renewalCycleYears !== undefined
+      ? `${rule.renewalCycleYears}年として原文から抽出`
+      : '更新周期を特定できていません',
+    rule.renewalCycleYears !== undefined ? 0.15 : 0,
+  );
+  addFactor(
+    '必要総単位',
+    rule.requiredTotalCredits !== undefined ? 'confirmed' : 'missing',
+    rule.requiredTotalCredits !== undefined
+      ? `${rule.requiredTotalCredits}単位として原文から抽出`
+      : '必要総単位を特定できていません',
+    rule.requiredTotalCredits !== undefined ? 0.2 : 0,
+  );
+
+  if (rule.requirements.length >= 3) {
+    addFactor('区分別・必須条件', 'confirmed', `${rule.requirements.length}件を数値と根拠付きで抽出`, 0.2);
+  } else if (rule.requirements.length > 0) {
+    addFactor('区分別・必須条件', 'partial', `${rule.requirements.length}件を抽出。資料全体との照合が必要`, 0.12);
+  } else {
+    addFactor('区分別・必須条件', 'missing', '数値付きの区分別条件を抽出できていません', 0);
+  }
+
+  addFactor(
+    '必須事項',
+    rule.mandatoryNotes.length > 0 ? 'confirmed' : 'partial',
+    rule.mandatoryNotes.length > 0
+      ? `${rule.mandatoryNotes.length}件の必須記載を抽出`
+      : '必須事項の独立した記載は見つかっていません',
+    rule.mandatoryNotes.length > 0 ? 0.1 : 0,
+  );
+  addFactor(
+    '補足条件',
+    rule.otherConditions.length > 0 ? 'confirmed' : 'partial',
+    rule.otherConditions.length > 0
+      ? `${rule.otherConditions.length}件の補足条件を抽出`
+      : '補足条件の独立した記載は見つかっていません',
+    rule.otherConditions.length > 0 ? 0.05 : 0,
+  );
+
+  if (
+    rule.renewalCycleYears !== undefined &&
+    rule.requiredTotalCredits !== undefined &&
+    rule.requirements.length >= 2
+  ) {
+    addFactor('主要項目の整合性', 'confirmed', '周期・総単位・区分別条件が同じ資料内で揃っています', 0.03);
+  }
+
+  if (rule.warnings.length > 0) {
+    const penalty = Math.min(0.15, rule.warnings.length * 0.05);
+    addFactor(
+      '自動抽出上の注意',
+      'attention',
+      `${rule.warnings.length}件の未確定項目があるため${Math.round(penalty * 100)}ポイント減点`,
+      -penalty,
+    );
+  }
+
+  const normalizedScore = Math.max(0, Math.min(0.98, Number(score.toFixed(2))));
+  const summary = normalizedScore >= 0.95
+    ? '主要項目と原文根拠が揃っています。公開前の最終照合のみ必要です。'
+    : normalizedScore >= 0.8
+      ? '主要項目は概ね揃っていますが、一部を公式資料で確認してください。'
+      : normalizedScore >= 0.5
+        ? '一部の条件は抽出できています。欠けている項目の補完が必要です。'
+        : '重要項目が不足しています。このまま公開せず公式資料と照合してください。';
+  return { version: 1, score: normalizedScore, summary, factors };
+};
+
 export const structureRenewalRule = (
   document: ExtractedDocument,
 ): { rule: StructuredRenewalRule; confidence: number } => {
@@ -229,28 +343,20 @@ export const structureRenewalRule = (
     warnings.push('特定の満了年度・対象者向け資料です。適用範囲の確認が必要です');
   }
 
-  let confidence = 0.15;
-  if (requiredTotalCredits !== undefined) confidence += 0.25;
-  if (renewalCycleYears !== undefined) confidence += 0.15;
-  if (requirements.length >= 2) confidence += 0.2;
-  if (mandatoryNotes.length > 0) confidence += 0.1;
-  if (otherConditions.length > 0) confidence += 0.05;
-  if (warnings.length > 0) confidence -= Math.min(0.2, warnings.length * 0.05);
-
-  return {
-    rule: {
-      schemaVersion: 1,
-      title: document.title,
-      renewalCycleYears,
-      requiredTotalCredits,
-      requirements,
-      otherConditions,
-      mandatoryNotes,
-      evidence,
-      warnings,
-    },
-    confidence: Math.max(0, Math.min(0.9, confidence)),
+  const rule: StructuredRenewalRule = {
+    schemaVersion: 1,
+    title: document.title,
+    renewalCycleYears,
+    requiredTotalCredits,
+    requirements,
+    otherConditions,
+    mandatoryNotes,
+    evidence,
+    warnings,
   };
+  const confidenceAssessment = confidenceAssessmentFor(rule);
+  rule.confidenceAssessment = confidenceAssessment;
+  return { rule, confidence: confidenceAssessment.score };
 };
 
 export const linksForDiscovery = (
@@ -260,12 +366,15 @@ export const linksForDiscovery = (
 ): DiscoveredLink[] => {
   const origin = new URL(indexUrl);
   const normalizedKeywords = keywords.map((value) => value.toLowerCase());
+  const genericKeywords = new Set(['更新', '認定', '基準', '規則', '単位', '専門医']);
+  const specificKeywords = normalizedKeywords.filter((value) => !genericKeywords.has(value));
+  const requiredKeywords = specificKeywords.length > 0 ? specificKeywords : normalizedKeywords;
   return links
     .filter((link) => {
       const target = new URL(link.url);
       if (target.hostname !== origin.hostname) return false;
       const haystack = `${link.title} ${target.pathname}`.toLowerCase();
-      const keywordMatch = normalizedKeywords.some((keyword) => haystack.includes(keyword));
+      const keywordMatch = requiredKeywords.some((keyword) => haystack.includes(keyword));
       return keywordMatch && (/\.pdf$/i.test(target.pathname) || /更新|認定|基準|規則/u.test(link.title));
     })
     .slice(0, 20);

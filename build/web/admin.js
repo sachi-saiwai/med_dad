@@ -27,6 +27,8 @@
     changeCounts: $('change-counts'), changeList: $('change-list'),
     changeReviewWrap: $('change-review-wrap'), changeReviewPoints: $('change-review-points'),
     changeWarningWrap: $('change-warning-wrap'), changeWarningList: $('change-warning-list'),
+    confidenceAssessmentCard: $('confidence-assessment-card'), confidenceSummary: $('confidence-summary'),
+    confidenceFactorList: $('confidence-factor-list'),
   };
 
   const state = {
@@ -162,6 +164,59 @@
   const confidenceClass = (confidence) => confidence >= 0.75
     ? 'confidence-high' : confidence >= 0.5 ? 'confidence-medium' : 'confidence-low';
 
+  const confidenceFactorLabels = {
+    confirmed: '確認済み', partial: '一部確認', missing: '未取得', attention: '要確認',
+  };
+
+  const renderConfidenceAssessment = (rule) => {
+    const data = rule.structured_data || {};
+    const stored = data.confidenceAssessment;
+    const confidence = Number(rule.confidence || 0);
+    const hasStoredAssessment = stored && Array.isArray(stored.factors);
+    const factors = hasStoredAssessment ? stored.factors : [
+      {
+        label: '抽出方式',
+        status: String(rule.extraction_method || '').startsWith('official-profile') ? 'confirmed' : 'partial',
+        detail: String(rule.extraction_method || '').startsWith('official-profile')
+          ? '公式資料に対応する固定プロファイルを使用しています'
+          : '本文のパターン認識による自動抽出です',
+      },
+      {
+        label: '主要項目',
+        status: data.renewalCycleYears && (data.requiredTotalCredits || data.requirements?.length)
+          ? 'confirmed' : 'missing',
+        detail: data.renewalCycleYears && (data.requiredTotalCredits || data.requirements?.length)
+          ? '更新周期と単位・条件を抽出しています'
+          : '更新周期または単位・条件が不足しています',
+      },
+      ...((data.warnings || []).length ? [{
+        label: '自動抽出上の注意', status: 'attention',
+        detail: `${data.warnings.length}件の確認事項があります`,
+      }] : []),
+    ];
+    elements.confidenceSummary.textContent = hasStoredAssessment && stored.summary
+      ? stored.summary
+      : confidence >= 0.8
+        ? '主要項目は概ね揃っています。公式資料で最終確認してください。'
+        : '未取得の項目があります。公式資料との照合と補完が必要です。';
+    elements.confidenceFactorList.replaceChildren();
+    factors.forEach((factor) => {
+      const status = ['confirmed', 'partial', 'missing', 'attention'].includes(factor.status)
+        ? factor.status : 'partial';
+      const item = document.createElement('li');
+      item.className = `confidence-factor confidence-factor-${status}`;
+      const marker = document.createElement('span'); marker.className = 'confidence-factor-marker';
+      marker.textContent = status === 'confirmed' ? '✓' : status === 'attention' ? '!' : '−';
+      const body = document.createElement('div');
+      const heading = document.createElement('div'); heading.className = 'confidence-factor-heading';
+      const label = document.createElement('strong'); label.textContent = factor.label || '評価項目';
+      const badge = document.createElement('span'); badge.textContent = confidenceFactorLabels[status];
+      heading.append(label, badge);
+      const detail = document.createElement('p'); detail.textContent = factor.detail || '詳細はありません。';
+      body.append(heading, detail); item.append(marker, body); elements.confidenceFactorList.append(item);
+    });
+  };
+
   const changeLabels = {
     none: '実質変更なし', low: '軽微', medium: '要確認', high: '重要',
   };
@@ -232,6 +287,7 @@
     const confidence = Number(rule.confidence || 0);
     elements.confidenceBadge.className = `confidence-badge ${confidenceClass(confidence)}`;
     elements.confidenceBadge.textContent = `抽出信頼度 ${Math.round(confidence * 100)}%`;
+    renderConfidenceAssessment(rule);
     elements.ruleId.textContent = `候補 #${rule.id}`;
     elements.qualificationName.textContent = rule.qualification_name;
     elements.sourceTitle.textContent = rule.source_title;

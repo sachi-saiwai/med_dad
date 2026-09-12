@@ -262,6 +262,7 @@ const sources: SourceSeed[] = [
     url: 'https://www.naika.or.jp/ninteikoshin-naikasenmoni/',
     systemType: '日本専門医機構認定',
     isIndex: true,
+    proposesRule: true,
     keywords: ['更新', '認定', '単位'],
   },
   {
@@ -280,6 +281,7 @@ const sources: SourceSeed[] = [
     url: 'https://www.jarm.or.jp/member/system/specialist_renewal.html',
     systemType: '日本専門医機構認定',
     isIndex: true,
+    proposesRule: true,
     keywords: ['専門医更新', '更新基準', '履修単位'],
   },
   {
@@ -383,7 +385,7 @@ const sources: SourceSeed[] = [
     systemType: '日本専門医機構認定（外科サブスペシャルティ）',
     isIndex: true,
     proposesRule: false,
-    keywords: ['乳腺外科専門医', '更新'],
+    keywords: ['乳腺外科専門医'],
   },
   {
     qualificationName: '乳腺専門医',
@@ -468,6 +470,34 @@ await db().query(
       AND rv.status = 'pending_review'
       AND sd.source_url <> $2`,
   [stableId('qual', '認定臨床医'), recognizedClinicalPhysicianRuleUrl],
+);
+
+const misclassifiedBreastSurgeryUrls = [
+  'https://www.jbcs.gr.jp/modules/elearning/index.php?content_id=11',
+  'https://www.jbcs.gr.jp/modules/elearning/index.php?content_id=16',
+];
+await db().query(
+  `UPDATE renewal_rule_versions rv
+      SET status = 'rejected',
+          reviewed_at = now(),
+          review_note = '乳腺外科専門医ではなく、乳腺認定医または乳腺指導医の資料だったため候補から除外しました。',
+          reviewed_by = 'system-source-cleanup'
+     FROM source_snapshots ss
+     JOIN source_documents sd ON sd.id = ss.source_document_id
+    WHERE rv.source_snapshot_id = ss.id
+      AND rv.qualification_id = $1
+      AND rv.status = 'pending_review'
+      AND sd.source_url = ANY($2::text[])`,
+  [stableId('qual', '乳腺外科専門医'), misclassifiedBreastSurgeryUrls],
+);
+await db().query(
+  `UPDATE source_documents
+      SET qualification_id = NULL,
+          proposes_rule = false,
+          updated_at = now()
+    WHERE qualification_id = $1
+      AND source_url = ANY($2::text[])`,
+  [stableId('qual', '乳腺外科専門医'), misclassifiedBreastSurgeryUrls],
 );
 
 await db().query(

@@ -222,6 +222,20 @@ for (const profile of profiles) {
       warnings: profile.renewalYear
         ? [`更新期限が${profile.renewalYear}年の資格だけに適用する期限別条件です。`]
         : [],
+      confidenceAssessment: {
+        version: 1,
+        score: 0.99,
+        summary: '日本外科学会の公式一次資料に対応する検証済みプロファイルです。公開前に適用年度を最終確認してください。',
+        factors: [
+          { label: '資料の発行元', status: 'confirmed', detail: '日本外科学会の公式サイトで公開された一次資料です' },
+          { label: '構造化方法', status: 'confirmed', detail: '更新期限別の固定プロファイルを適用しています' },
+          { label: '更新周期', status: 'confirmed', detail: '5年として公式記載と照合済みです' },
+          { label: '単位・必須条件', status: 'confirmed', detail: `総単位50単位と${profile.requirements.length}件の条件を照合済みです` },
+          ...(profile.renewalYear
+            ? [{ label: '適用年度', status: 'attention', detail: `${profile.renewalYear}年12月31日満了者向けの条件です` }]
+            : []),
+        ],
+      },
     };
     const nextStatus = restoreGeneral ? 'published' : wrongPublishedTotal ? 'pending_review' : row.status;
     const reviewNote = restoreGeneral
@@ -237,8 +251,8 @@ for (const profile of profiles) {
               renewal_cycle_years = 5,
               required_total_credits = 50,
               structured_data = $3::jsonb,
-              extraction_method = 'official-profile-v1',
-              confidence = 0.9,
+              extraction_method = 'official-profile-jssoc-v2',
+              confidence = 0.99,
               status = $4,
               published_at = CASE WHEN $4 = 'published' THEN COALESCE(published_at, now()) ELSE NULL END,
               review_note = COALESCE($5, review_note)

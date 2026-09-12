@@ -11,7 +11,7 @@ import '../services/web_push_service.dart';
 import 'app_data_store.dart';
 import 'app_state.dart';
 
-enum AccountConnectionStatus { connected, invitationRequired, accountMismatch }
+enum AccountConnectionStatus { connected, invitationRequired }
 
 class AccountConnectionResult {
   const AccountConnectionResult(this.status, {this.message});
@@ -48,15 +48,33 @@ class AppController extends ChangeNotifier {
   String? get syncError => _syncError;
   bool get webPushSupported => _webPush.isSupported;
 
-  Future<bool> bindToAccount(String accountId) async {
-    final existingAccountId = _snapshot.accountId;
-    if (existingAccountId != null) return existingAccountId == accountId;
-    _snapshot = _snapshot.copyWith(
-      accountId: accountId,
-      updatedAt: DateTime.now().toUtc().toIso8601String(),
+  /// Loads the local data of [accountId]. Each account keeps its own dataset on
+  /// the device, so signing in with another account never overwrites or exposes
+  /// someone else's records.
+  Future<void> activateAccount(String accountId) async {
+    if (_snapshot.accountId == accountId) return;
+    _snapshot = await _store.load(accountId: accountId);
+    _demoMode = false;
+    await _notifications.rescheduleDeadlineNotifications(
+      _snapshot.qualifications,
+      enabled: _snapshot.settings.deadlineNotifications,
     );
+    notifyListeners();
+  }
+
+  /// Data entered before signing in belongs to whoever signs in first.
+  Future<void> _adoptPreSignInData(String accountId) async {
+    if (_snapshot.accountId != accountId || _snapshot.setupComplete) return;
+    final preSignIn = await _store.load();
+    if (!preSignIn.setupComplete) return;
+    _snapshot = preSignIn.copyWith(accountId: accountId);
     await _store.save(_snapshot);
-    return true;
+    await _store.remove();
+    await _notifications.rescheduleDeadlineNotifications(
+      _snapshot.qualifications,
+      enabled: _snapshot.settings.deadlineNotifications,
+    );
+    notifyListeners();
   }
 
   Future<AccountConnectionResult> connectAuthenticatedAccount(
@@ -67,13 +85,10 @@ class AppController extends ChangeNotifier {
     final cloudAuthService = authService is CloudAuthService
         ? authService as CloudAuthService
         : null;
+    await activateAccount(user.id);
     if (cloudAuthService == null) {
-      final bound = await bindToAccount(user.id);
-      return AccountConnectionResult(
-        bound
-            ? AccountConnectionStatus.connected
-            : AccountConnectionStatus.accountMismatch,
-      );
+      await _adoptPreSignInData(user.id);
+      return const AccountConnectionResult(AccountConnectionStatus.connected);
     }
 
     if (_cloudUserId != user.id || _cloud == null) {
@@ -105,12 +120,7 @@ class AppController extends ChangeNotifier {
       rethrow;
     }
 
-    if (!await bindToAccount(user.id)) {
-      return const AccountConnectionResult(
-        AccountConnectionStatus.accountMismatch,
-      );
-    }
-
+    await _adoptPreSignInData(user.id);
     await _webPush.requestPersistentStorage();
     await _initialCloudSync(user.id);
     return const AccountConnectionResult(AccountConnectionStatus.connected);
@@ -478,12 +488,16 @@ class AppController extends ChangeNotifier {
     try {
       await cloud.deleteAccountData(authorizationToken: token);
     } finally {
-      _snapshot = const AppSnapshot();
-      await _store.save(_snapshot);
+      await _store.remove(accountId: _snapshot.accountId);
+      _snapshot = await _store.load();
       _remoteRevision = 0;
       _cloudUserId = null;
       _cloud?.close();
       _cloud = null;
+      await _notifications.rescheduleDeadlineNotifications(
+        _snapshot.qualifications,
+        enabled: _snapshot.settings.deadlineNotifications,
+      );
       notifyListeners();
     }
   }

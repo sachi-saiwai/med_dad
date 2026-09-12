@@ -8,6 +8,10 @@ class StoredQualification {
     this.parentQualification,
     this.memberId = '',
     this.memberPortalUrl = '',
+    this.creditDeadline = '',
+    this.applicationStartDate = '',
+    this.applicationDeadline = '',
+    this.membershipFeeStatus = membershipFeeUnconfirmed,
   });
 
   final String id;
@@ -18,6 +22,10 @@ class StoredQualification {
   final String? parentQualification;
   final String memberId;
   final String memberPortalUrl;
+  final String creditDeadline;
+  final String applicationStartDate;
+  final String applicationDeadline;
+  final String membershipFeeStatus;
 
   StoredQualification copyWith({
     String? name,
@@ -27,6 +35,10 @@ class StoredQualification {
     String? parentQualification,
     String? memberId,
     String? memberPortalUrl,
+    String? creditDeadline,
+    String? applicationStartDate,
+    String? applicationDeadline,
+    String? membershipFeeStatus,
   }) {
     return StoredQualification(
       id: id,
@@ -37,6 +49,10 @@ class StoredQualification {
       parentQualification: parentQualification ?? this.parentQualification,
       memberId: memberId ?? this.memberId,
       memberPortalUrl: memberPortalUrl ?? this.memberPortalUrl,
+      creditDeadline: creditDeadline ?? this.creditDeadline,
+      applicationStartDate: applicationStartDate ?? this.applicationStartDate,
+      applicationDeadline: applicationDeadline ?? this.applicationDeadline,
+      membershipFeeStatus: membershipFeeStatus ?? this.membershipFeeStatus,
     );
   }
 
@@ -49,6 +65,10 @@ class StoredQualification {
     'parentQualification': parentQualification,
     'memberId': memberId,
     'memberPortalUrl': memberPortalUrl,
+    'creditDeadline': creditDeadline,
+    'applicationStartDate': applicationStartDate,
+    'applicationDeadline': applicationDeadline,
+    'membershipFeeStatus': membershipFeeStatus,
   };
 
   factory StoredQualification.fromJson(Map<String, Object?> json) {
@@ -61,9 +81,25 @@ class StoredQualification {
       parentQualification: json['parentQualification'] as String?,
       memberId: (json['memberId'] as String?) ?? '',
       memberPortalUrl: (json['memberPortalUrl'] as String?) ?? '',
+      creditDeadline: (json['creditDeadline'] as String?) ?? '',
+      applicationStartDate: (json['applicationStartDate'] as String?) ?? '',
+      applicationDeadline: (json['applicationDeadline'] as String?) ?? '',
+      membershipFeeStatus:
+          (json['membershipFeeStatus'] as String?) ?? membershipFeeUnconfirmed,
     );
   }
 }
+
+const membershipFeeUnconfirmed = '未確認';
+const membershipFeePaid = '支払済み';
+const membershipFeeUnpaid = '未払い';
+const membershipFeeNotApplicable = '対象外';
+const membershipFeeStatuses = <String>[
+  membershipFeeUnconfirmed,
+  membershipFeePaid,
+  membershipFeeUnpaid,
+  membershipFeeNotApplicable,
+];
 
 class StoredActivityAllocation {
   const StoredActivityAllocation({
@@ -333,6 +369,23 @@ class QualificationPointSummary {
   double get projected => current + planned;
 }
 
+class QualificationEvidenceSummary {
+  const QualificationEvidenceSummary({
+    this.confirmedActivities = 0,
+    this.attachedEvidence = 0,
+    this.plannedActivities = 0,
+  });
+
+  final int confirmedActivities;
+  final int attachedEvidence;
+  final int plannedActivities;
+
+  int get missingEvidence => confirmedActivities - attachedEvidence;
+  double get coverage => confirmedActivities == 0
+      ? 0
+      : (attachedEvidence / confirmedActivities).clamp(0, 1);
+}
+
 extension AppSnapshotPointSummaries on AppSnapshot {
   QualificationPointSummary pointsForQualification(String qualificationId) {
     var current = 0.0;
@@ -386,6 +439,49 @@ extension AppSnapshotPointSummaries on AppSnapshot {
       planned: planned,
       currentByCategory: Map.unmodifiable(currentByCategory),
       plannedByCategory: Map.unmodifiable(plannedByCategory),
+    );
+  }
+
+  QualificationEvidenceSummary evidenceForQualification(
+    String qualificationId,
+  ) {
+    var confirmedActivities = 0;
+    var attachedEvidence = 0;
+    var plannedActivities = 0;
+
+    for (final activity in activities) {
+      if (activity.status != '確定' && activity.status != '参加予定') continue;
+
+      var allocations = activity.allocations;
+      if (allocations.isEmpty && qualifications.length == 1) {
+        allocations = [
+          StoredActivityAllocation(
+            qualificationId: qualifications.single.id,
+            credits: activity.credits,
+          ),
+        ];
+      }
+      final assigned = allocations.any(
+        (allocation) =>
+            allocation.qualificationId == qualificationId &&
+            allocation.credits > 0,
+      );
+      if (!assigned) continue;
+
+      if (activity.status == '参加予定') {
+        plannedActivities += 1;
+        continue;
+      }
+      confirmedActivities += 1;
+      if (activity.attachmentPath?.trim().isNotEmpty == true) {
+        attachedEvidence += 1;
+      }
+    }
+
+    return QualificationEvidenceSummary(
+      confirmedActivities: confirmedActivities,
+      attachedEvidence: attachedEvidence,
+      plannedActivities: plannedActivities,
     );
   }
 }

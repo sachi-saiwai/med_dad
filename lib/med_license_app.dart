@@ -13,6 +13,7 @@ import 'services/certificate_ocr_service.dart';
 import 'services/cloud_data_service.dart';
 import 'services/credit_recommendation.dart';
 import 'services/official_rule_service.dart';
+import 'services/renewal_packet_service.dart';
 
 /// 文字色。長文でも疲れにくいよう白背景とのコントラストを高めに取っている。
 const _ink = Color(0xFF152538);
@@ -386,14 +387,6 @@ class _AccountBoundContentState extends State<_AccountBoundContent> {
             onResolved: _useConnectionResult,
           );
         }
-        if (result.status == AccountConnectionStatus.accountMismatch) {
-          return _AccountAccessScreen(
-            authService: widget.authService,
-            title: '別のアカウントのデータがあります',
-            message: 'この端末の資格・実績は別のアカウントに関連付けられています。元のアカウントでログインしてください。',
-          );
-        }
-
         return _buildAppContent();
       },
     );
@@ -445,8 +438,7 @@ class _InvitationAccessScreenState extends State<_InvitationAccessScreen> {
     try {
       final result = await widget.onSubmit(code);
       if (!mounted) return;
-      if (result.isConnected ||
-          result.status == AccountConnectionStatus.accountMismatch) {
+      if (result.isConnected) {
         widget.onResolved(result);
       } else {
         setState(() {
@@ -881,6 +873,37 @@ class _GoogleMark extends StatelessWidget {
 
 enum QualificationState { needsAttention, onTrack, almostDue }
 
+enum PreparationCheckState { complete, attention, pending }
+
+class PreparationCheck {
+  const PreparationCheck({
+    required this.label,
+    required this.detail,
+    required this.state,
+  });
+
+  final String label;
+  final String detail;
+  final PreparationCheckState state;
+}
+
+class QualificationReadiness {
+  const QualificationReadiness(this.checks);
+
+  final List<PreparationCheck> checks;
+
+  int get completedCount => checks
+      .where((check) => check.state == PreparationCheckState.complete)
+      .length;
+  int get attentionCount => checks
+      .where((check) => check.state == PreparationCheckState.attention)
+      .length;
+  int get pendingCount => checks
+      .where((check) => check.state == PreparationCheckState.pending)
+      .length;
+  bool get isReady => checks.isNotEmpty && completedCount == checks.length;
+}
+
 class RequirementProgress {
   const RequirementProgress({
     required this.label,
@@ -916,6 +939,14 @@ class Qualification {
     this.licenseNumber = '',
     this.memberId = '',
     this.memberPortalUrl = '',
+    this.creditDeadline = '未登録',
+    this.applicationStartDate = '未登録',
+    this.applicationDeadline = '未登録',
+    this.nextDeadlineLabel = '資格有効期限',
+    this.nextDeadlineDate,
+    this.membershipFeeStatus = membershipFeeUnconfirmed,
+    this.evidenceSummary = const QualificationEvidenceSummary(),
+    this.ruleChangeMessages = const [],
     this.currentByCategory = const {},
     this.plannedByCategory = const {},
     this.creditEntries = const [],
@@ -956,6 +987,14 @@ class Qualification {
   final String licenseNumber;
   final String memberId;
   final String memberPortalUrl;
+  final String creditDeadline;
+  final String applicationStartDate;
+  final String applicationDeadline;
+  final String nextDeadlineLabel;
+  final String? nextDeadlineDate;
+  final String membershipFeeStatus;
+  final QualificationEvidenceSummary evidenceSummary;
+  final List<String> ruleChangeMessages;
   final Map<String, double> currentByCategory;
   final Map<String, double> plannedByCategory;
   final List<CreditBreakdownEntry> creditEntries;
@@ -969,6 +1008,138 @@ class Qualification {
 
   double currentForCategory(String label) =>
       _creditsForCategory(currentByCategory, label);
+
+  QualificationReadiness readinessAt([DateTime? date]) {
+    final now = date ?? DateTime.now();
+    final checks = <PreparationCheck>[];
+    checks.add(
+      PreparationCheck(
+        label: '公式要件',
+        detail: hasVerifiedRequirements
+            ? sourceCheckedAt == null
+                  ? '承認済みの条件を取得済み'
+                  : '${_formatJapaneseDate(sourceCheckedAt!)}に確認済み'
+            : '承認済みの公式条件が必要です',
+        state: hasVerifiedRequirements
+            ? PreparationCheckState.complete
+            : PreparationCheckState.pending,
+      ),
+    );
+
+    final unitComplete =
+        hasVerifiedRequirements && requiredTotal > 0 && total >= requiredTotal;
+    final projectedComplete =
+        hasVerifiedRequirements &&
+        requiredTotal > 0 &&
+        projectedTotal >= requiredTotal;
+    checks.add(
+      PreparationCheck(
+        label: '単位',
+        detail: requiredTotal <= 0
+            ? '必要総単位を確認できていません'
+            : unitComplete
+            ? '${_formatNumber(total)} / ${_formatNumber(requiredTotal)}単位・達成'
+            : projectedComplete
+            ? '確定${_formatNumber(total)}単位・予定を含めると達成見込み'
+            : 'あと${_formatNumber((requiredTotal - projectedTotal).clamp(0, double.infinity))}単位必要',
+        state: unitComplete
+            ? PreparationCheckState.complete
+            : requiredTotal > 0
+            ? PreparationCheckState.attention
+            : PreparationCheckState.pending,
+      ),
+    );
+
+    final requirementsComplete =
+        requirements.isNotEmpty &&
+        requirements.every((item) => item.isComplete);
+    final incompleteRequirements = requirements
+        .where((item) => !item.isComplete)
+        .length;
+    checks.add(
+      PreparationCheck(
+        label: '必須条件',
+        detail: !hasVerifiedRequirements || requirements.isEmpty
+            ? '追跡できる必須条件を確認中です'
+            : requirementsComplete
+            ? '${requirements.length}項目すべて達成'
+            : '$incompleteRequirements項目が未達成',
+        state: !hasVerifiedRequirements || requirements.isEmpty
+            ? PreparationCheckState.pending
+            : requirementsComplete
+            ? PreparationCheckState.complete
+            : PreparationCheckState.attention,
+      ),
+    );
+
+    final evidence = evidenceSummary;
+    checks.add(
+      PreparationCheck(
+        label: '証憑',
+        detail: evidence.confirmedActivities == 0
+            ? '確定実績はまだありません'
+            : evidence.missingEvidence == 0
+            ? '${evidence.attachedEvidence} / ${evidence.confirmedActivities}件に添付済み'
+            : '${evidence.missingEvidence}件の証憑が未添付です',
+        state: evidence.confirmedActivities == 0
+            ? PreparationCheckState.pending
+            : evidence.missingEvidence == 0
+            ? PreparationCheckState.complete
+            : PreparationCheckState.attention,
+      ),
+    );
+
+    final feeComplete =
+        membershipFeeStatus == membershipFeePaid ||
+        membershipFeeStatus == membershipFeeNotApplicable;
+    checks.add(
+      PreparationCheck(
+        label: '年会費',
+        detail: switch (membershipFeeStatus) {
+          membershipFeePaid => '支払済み',
+          membershipFeeNotApplicable => '対象外として確認済み',
+          membershipFeeUnpaid => '未払いです',
+          _ => '支払状況を確認してください',
+        },
+        state: feeComplete
+            ? PreparationCheckState.complete
+            : membershipFeeStatus == membershipFeeUnpaid
+            ? PreparationCheckState.attention
+            : PreparationCheckState.pending,
+      ),
+    );
+
+    final applicationStart = _parseFlexibleDate(applicationStartDate);
+    final applicationEnd = _parseFlexibleDate(applicationDeadline);
+    final today = DateTime(now.year, now.month, now.day);
+    final isBeforeApplication =
+        applicationStart != null && today.isBefore(applicationStart);
+    final isAfterApplication =
+        applicationEnd != null && today.isAfter(applicationEnd);
+    final applicationOpen =
+        applicationStart != null &&
+        applicationEnd != null &&
+        !isBeforeApplication &&
+        !isAfterApplication;
+    checks.add(
+      PreparationCheck(
+        label: '申請期間',
+        detail: applicationOpen
+            ? '現在、申請受付期間内です'
+            : isBeforeApplication
+            ? '${_formatStoredDate(applicationStartDate)}から受付開始'
+            : isAfterApplication
+            ? '更新申請締切を過ぎています'
+            : '申請受付期間を登録してください',
+        state: applicationOpen
+            ? PreparationCheckState.complete
+            : isAfterApplication
+            ? PreparationCheckState.attention
+            : PreparationCheckState.pending,
+      ),
+    );
+    return QualificationReadiness(List.unmodifiable(checks));
+  }
 }
 
 class QualificationCatalogEntry {
@@ -1436,6 +1607,9 @@ class CreditBreakdownEntry {
     required this.organizer,
     required this.credits,
     required this.certificationId,
+    this.hasEvidence = true,
+    this.activityId = '',
+    this.attachmentPath,
   });
 
   final String title;
@@ -1445,6 +1619,9 @@ class CreditBreakdownEntry {
   final String organizer;
   final double credits;
   final String certificationId;
+  final bool hasEvidence;
+  final String activityId;
+  final String? attachmentPath;
 }
 
 const sampleQualifications = <Qualification>[
@@ -1478,6 +1655,16 @@ const sampleQualifications = <Qualification>[
         note: '必須項目',
       ),
     ],
+    creditDeadline: '2026年9月30日',
+    applicationStartDate: '2026年10月1日',
+    applicationDeadline: '2026年11月30日',
+    nextDeadlineLabel: '単位算入期限',
+    nextDeadlineDate: '2026年9月30日',
+    membershipFeeStatus: membershipFeePaid,
+    evidenceSummary: QualificationEvidenceSummary(
+      confirmedActivities: 6,
+      attachedEvidence: 5,
+    ),
     isDemo: true,
   ),
   Qualification(
@@ -1510,6 +1697,16 @@ const sampleQualifications = <Qualification>[
         note: '達成済み',
       ),
     ],
+    creditDeadline: '2027年2月28日',
+    applicationStartDate: '2027年1月6日',
+    applicationDeadline: '2027年2月28日',
+    nextDeadlineLabel: '単位算入期限',
+    nextDeadlineDate: '2027年2月28日',
+    membershipFeeStatus: membershipFeeUnconfirmed,
+    evidenceSummary: QualificationEvidenceSummary(
+      confirmedActivities: 6,
+      attachedEvidence: 5,
+    ),
     isDemo: true,
   ),
   Qualification(
@@ -1542,6 +1739,16 @@ const sampleQualifications = <Qualification>[
         note: '達成済み',
       ),
     ],
+    creditDeadline: '2028年1月31日',
+    applicationStartDate: '2028年1月1日',
+    applicationDeadline: '2028年2月29日',
+    nextDeadlineLabel: '単位算入期限',
+    nextDeadlineDate: '2028年1月31日',
+    membershipFeeStatus: membershipFeePaid,
+    evidenceSummary: QualificationEvidenceSummary(
+      confirmedActivities: 5,
+      attachedEvidence: 5,
+    ),
     isDemo: true,
   ),
 ];
@@ -1551,15 +1758,27 @@ Qualification qualificationFromStored(
   AppSnapshot snapshot,
 ) {
   final deadline = _parseFlexibleDate(stored.deadline);
-  final remainingDays = deadline == null
+  final creditDeadline = _parseFlexibleDate(stored.creditDeadline);
+  final applicationDeadline = _parseFlexibleDate(stored.applicationDeadline);
+  final deadlineCandidates = <({String label, DateTime date})>[
+    if (deadline != null) (label: '資格有効期限', date: deadline),
+    if (creditDeadline != null) (label: '単位算入期限', date: creditDeadline),
+    if (applicationDeadline != null)
+      (label: '更新申請締切', date: applicationDeadline),
+  ]..sort((left, right) => left.date.compareTo(right.date));
+  final nextDeadline = deadlineCandidates.firstOrNull;
+  final now = DateTime.now();
+  final remainingDays = nextDeadline == null
       ? 0
       : DateTime(
-          deadline.year,
-          deadline.month,
-          deadline.day,
-        ).difference(DateTime.now()).inDays;
+          nextDeadline.date.year,
+          nextDeadline.date.month,
+          nextDeadline.date.day,
+        ).difference(DateTime(now.year, now.month, now.day)).inDays;
   final points = snapshot.pointsForQualification(stored.id);
-  final state = remainingDays < 0 || (deadline != null && remainingDays <= 180)
+  final evidence = snapshot.evidenceForQualification(stored.id);
+  final state =
+      remainingDays < 0 || (nextDeadline != null && remainingDays <= 180)
       ? QualificationState.almostDue
       : points.current > 0
       ? QualificationState.onTrack
@@ -1576,6 +1795,13 @@ Qualification qualificationFromStored(
     deadline: deadline == null
         ? '未登録'
         : '${deadline.year}年${deadline.month}月${deadline.day}日',
+    creditDeadline: _formatStoredDate(stored.creditDeadline),
+    applicationStartDate: _formatStoredDate(stored.applicationStartDate),
+    applicationDeadline: _formatStoredDate(stored.applicationDeadline),
+    nextDeadlineLabel: nextDeadline?.label ?? '資格有効期限',
+    nextDeadlineDate: nextDeadline == null
+        ? null
+        : '${nextDeadline.date.year}年${nextDeadline.date.month}月${nextDeadline.date.day}日',
     remainingDays: remainingDays,
     state: state,
     total: points.current,
@@ -1587,6 +1813,8 @@ Qualification qualificationFromStored(
     licenseNumber: stored.licenseNumber,
     memberId: stored.memberId,
     memberPortalUrl: stored.memberPortalUrl,
+    membershipFeeStatus: stored.membershipFeeStatus,
+    evidenceSummary: evidence,
     currentByCategory: points.currentByCategory,
     plannedByCategory: points.plannedByCategory,
     creditEntries: _creditEntriesForQualification(snapshot, stored.id),
@@ -1666,9 +1894,17 @@ Qualification qualificationWithOfficialRule(
     sourceCheckedAt: rule.source.checkedAt,
     mandatoryNotes: rule.mandatoryNotes,
     otherConditions: rule.otherConditions,
+    ruleChangeMessages: rule.changeImpactMessages,
     licenseNumber: qualification.licenseNumber,
     memberId: qualification.memberId,
     memberPortalUrl: qualification.memberPortalUrl,
+    creditDeadline: qualification.creditDeadline,
+    applicationStartDate: qualification.applicationStartDate,
+    applicationDeadline: qualification.applicationDeadline,
+    nextDeadlineLabel: qualification.nextDeadlineLabel,
+    nextDeadlineDate: qualification.nextDeadlineDate,
+    membershipFeeStatus: qualification.membershipFeeStatus,
+    evidenceSummary: qualification.evidenceSummary,
     currentByCategory: qualification.currentByCategory,
     plannedByCategory: qualification.plannedByCategory,
     creditEntries: qualification.creditEntries,
@@ -1721,6 +1957,9 @@ List<CreditBreakdownEntry> _creditEntriesForQualification(
           organizer: activity.organizer.isEmpty ? '主催者未入力' : activity.organizer,
           credits: allocation.credits,
           certificationId: activity.certificationId,
+          hasEvidence: activity.attachmentPath?.trim().isNotEmpty == true,
+          activityId: activity.id,
+          attachmentPath: activity.attachmentPath,
         ),
       );
     }
@@ -1745,6 +1984,11 @@ DateTime? _parseFlexibleDate(String value) {
     return null;
   }
   return parsed;
+}
+
+String _formatStoredDate(String value) {
+  final date = _parseFlexibleDate(value);
+  return date == null ? '未登録' : '${date.year}年${date.month}月${date.day}日';
 }
 
 const creditBreakdownByQualification = <String, List<CreditBreakdownEntry>>{
@@ -1784,6 +2028,7 @@ const creditBreakdownByQualification = <String, List<CreditBreakdownEntry>>{
       organizer: '救急超音波研究会',
       credits: 4,
       certificationId: '2602180218',
+      hasEvidence: false,
     ),
     CreditBreakdownEntry(
       title: '症例発表：心エコー評価',
@@ -1822,6 +2067,7 @@ const creditBreakdownByQualification = <String, List<CreditBreakdownEntry>>{
       organizer: '地域医療研修センター',
       credits: 2,
       certificationId: '2608180042',
+      hasEvidence: false,
     ),
     CreditBreakdownEntry(
       title: '医療安全講習会',
@@ -1970,6 +2216,10 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
           deadline: draft.deadline.trim(),
           memberId: draft.memberId.trim(),
           memberPortalUrl: draft.memberPortalUrl.trim(),
+          creditDeadline: draft.creditDeadline.trim(),
+          applicationStartDate: draft.applicationStartDate.trim(),
+          applicationDeadline: draft.applicationDeadline.trim(),
+          membershipFeeStatus: draft.membershipFeeStatus,
         ),
       );
       for (final subspecialtyName in draft.subspecialtyNames) {
@@ -2120,6 +2370,10 @@ class _QualificationDraft {
     required this.deadline,
   }) : memberId = '',
        memberPortalUrl = '',
+       creditDeadline = '',
+       applicationStartDate = '',
+       applicationDeadline = '',
+       membershipFeeStatus = membershipFeeUnconfirmed,
        subspecialtyNames = {};
 
   final int id;
@@ -2129,6 +2383,10 @@ class _QualificationDraft {
   String deadline;
   String memberId;
   String memberPortalUrl;
+  String creditDeadline;
+  String applicationStartDate;
+  String applicationDeadline;
+  String membershipFeeStatus;
   Set<String> subspecialtyNames;
 }
 
@@ -2964,6 +3222,7 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
               decoration: const InputDecoration(
                 labelText: '学会会員サイトURL（任意）',
                 hintText: 'https://...',
+                helperText: 'パスワードは入力・保存しません',
               ),
             ),
             const SizedBox(height: 12),
@@ -2973,11 +3232,58 @@ class _SetupQualificationCardState extends State<_SetupQualificationCard> {
               keyboardType: TextInputType.datetime,
               decoration: InputDecoration(
                 labelText: _selectedEntry == null
-                    ? '次回更新期限'
-                    : '${_selectedEntry!.name}の次回更新期限',
+                    ? '資格有効期限'
+                    : '${_selectedEntry!.name}の資格有効期限',
                 hintText: 'YYYY/MM/DD',
                 suffixIcon: const Icon(Icons.event_outlined),
               ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: widget.draft.creditDeadline,
+              onChanged: (value) => widget.draft.creditDeadline = value,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '単位算入期限（任意）',
+                hintText: 'YYYY/MM/DD',
+                suffixIcon: Icon(Icons.fact_check_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: widget.draft.applicationStartDate,
+              onChanged: (value) => widget.draft.applicationStartDate = value,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '申請受付開始日（任意）',
+                hintText: 'YYYY/MM/DD',
+                suffixIcon: Icon(Icons.play_circle_outline_rounded),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: widget.draft.applicationDeadline,
+              onChanged: (value) => widget.draft.applicationDeadline = value,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '更新申請締切（任意）',
+                hintText: 'YYYY/MM/DD',
+                suffixIcon: Icon(Icons.event_busy_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: widget.draft.membershipFeeStatus,
+              decoration: const InputDecoration(labelText: '年会費の状況'),
+              items: membershipFeeStatuses
+                  .map(
+                    (status) =>
+                        DropdownMenuItem(value: status, child: Text(status)),
+                  )
+                  .toList(growable: false),
+              onChanged: (value) {
+                if (value != null) widget.draft.membershipFeeStatus = value;
+              },
             ),
           ],
         ),
@@ -3377,7 +3683,7 @@ class HomeScreen extends StatelessWidget {
               )
               .toList(growable: false);
     final datedQualifications =
-        qualifications.where((item) => item.deadline != '未登録').toList()
+        qualifications.where((item) => item.nextDeadlineDate != null).toList()
           ..sort((a, b) => a.remainingDays.compareTo(b.remainingDays));
     final nextQualification = datedQualifications.firstOrNull;
     return CustomScrollView(
@@ -3654,7 +3960,7 @@ class _NextDeadlineCard extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                qualification.deadline,
+                '${qualification.nextDeadlineLabel}・${qualification.nextDeadlineDate ?? '未登録'}',
                 style: const TextStyle(color: _onInkSoft, fontSize: 16),
               ),
               const SizedBox(height: 18),
@@ -3744,7 +4050,9 @@ class QualificationCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '期限 ${qualification.deadline}',
+                          qualification.nextDeadlineDate == null
+                              ? '期限は未登録'
+                              : '${qualification.nextDeadlineLabel} ${qualification.nextDeadlineDate}',
                           style: const TextStyle(color: _inkSoft, fontSize: 15),
                         ),
                       ],
@@ -3812,6 +4120,26 @@ class QualificationCard extends StatelessWidget {
                     backgroundColor: _track,
                     color: style.foreground,
                   ),
+                ),
+              ],
+              if (qualification.evidenceSummary.confirmedActivities > 0) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MiniPill(
+                      label:
+                          '証憑 ${qualification.evidenceSummary.attachedEvidence}/${qualification.evidenceSummary.confirmedActivities}件',
+                      emphasized:
+                          qualification.evidenceSummary.missingEvidence == 0,
+                    ),
+                    if (qualification.evidenceSummary.missingEvidence > 0)
+                      _MiniPill(
+                        label:
+                            '未添付 ${qualification.evidenceSummary.missingEvidence}件',
+                      ),
+                  ],
                 ),
               ],
               const SizedBox(height: 14),
@@ -3898,6 +4226,11 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
   late Qualification _qualification;
   late _OfficialRuleViewState _ruleState;
   String? _ruleError;
+  bool _exportingPacket = false;
+
+  List<CreditBreakdownEntry> get _displayCreditEntries => _qualification.isDemo
+      ? creditBreakdownByQualification[_qualification.name] ?? const []
+      : _qualification.creditEntries;
 
   @override
   void initState() {
@@ -3991,18 +4324,273 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
     await _loadOfficialRule();
   }
 
+  void _showRenewalPacketSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 2, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('更新申請パケット', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 6),
+              const Text(
+                '資格ごとに、単位一覧・区分別集計・証憑索引をまとめます。',
+                style: TextStyle(color: _inkSoft, height: 1.5),
+              ),
+              const SizedBox(height: 14),
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const _IconTile(
+                        icon: Icons.picture_as_pdf_outlined,
+                        color: _danger,
+                        background: _dangerSoft,
+                      ),
+                      title: const Text(
+                        'PDFを保存',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text('申請準備の集計と証憑索引'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        unawaited(
+                          _exportRenewalPacket(RenewalPacketFormat.pdf),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1, indent: 76),
+                    ListTile(
+                      leading: const _IconTile(
+                        icon: Icons.folder_zip_outlined,
+                        color: _primary,
+                        background: _primarySoft,
+                      ),
+                      title: const Text(
+                        'ZIPを保存',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text('PDFと登録済み参加証ファイル'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        unawaited(
+                          _exportRenewalPacket(RenewalPacketFormat.zip),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.lock_outline_rounded, color: _inkSoft, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '出力ファイルには個人情報が含まれます。保存先と共有先を確認してください。',
+                      style: TextStyle(
+                        color: _inkSoft,
+                        fontSize: 12,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportRenewalPacket(RenewalPacketFormat format) async {
+    if (_exportingPacket) return;
+    setState(() => _exportingPacket = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final entries = _displayCreditEntries;
+      final data = _buildRenewalPacketData(entries);
+      const service = RenewalPacketService();
+      RenewalPacketBundle bundle;
+      if (format == RenewalPacketFormat.zip) {
+        final evidence = await _loadPacketEvidence(entries);
+        bundle = await service.buildZip(
+          data,
+          evidenceFiles: evidence.files,
+          unavailableEvidenceIds: evidence.unavailableIds,
+        );
+      } else {
+        bundle = await service.buildPdf(data);
+      }
+      final saved = await service.save(bundle);
+      if (!mounted || !saved) return;
+      final evidenceMessage = format == RenewalPacketFormat.zip
+          ? '・証憑${bundle.includedEvidenceCount}件を同梱'
+                '${bundle.unavailableEvidenceCount > 0 ? '・${bundle.unavailableEvidenceCount}件は未同梱' : ''}'
+          : '';
+      messenger.showSnackBar(
+        SnackBar(content: Text('${bundle.fileName}を保存しました$evidenceMessage')),
+      );
+    } on Object catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '更新申請パケットを作成できませんでした：'
+            '${error.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _exportingPacket = false);
+    }
+  }
+
+  RenewalPacketData _buildRenewalPacketData(
+    List<CreditBreakdownEntry> entries,
+  ) {
+    final qualification = _qualification;
+    final readiness = qualification.readinessAt();
+    return RenewalPacketData(
+      qualificationName: qualification.name,
+      organization: qualification.organization,
+      licenseNumber: qualification.licenseNumber,
+      memberId: qualification.memberId,
+      credentialDeadline: qualification.deadline,
+      creditDeadline: qualification.creditDeadline,
+      applicationStartDate: qualification.applicationStartDate,
+      applicationDeadline: qualification.applicationDeadline,
+      membershipFeeStatus: qualification.membershipFeeStatus,
+      currentCredits: qualification.total,
+      plannedCredits: qualification.plannedTotal,
+      requiredCredits: qualification.requiredTotal,
+      confirmedActivityCount: qualification.evidenceSummary.confirmedActivities,
+      attachedEvidenceCount: qualification.evidenceSummary.attachedEvidence,
+      requirements: qualification.requirements
+          .map(
+            (item) => RenewalPacketRequirement(
+              label: item.label,
+              current: item.current,
+              requiredValue: item.requiredValue,
+              unit: item.unit,
+              complete: item.isComplete,
+            ),
+          )
+          .toList(growable: false),
+      readinessChecks: readiness.checks
+          .map(
+            (item) => RenewalPacketReadinessCheck(
+              label: item.label,
+              detail: item.detail,
+              status: switch (item.state) {
+                PreparationCheckState.complete => '確認済み',
+                PreparationCheckState.attention => '要対応',
+                PreparationCheckState.pending => '要確認',
+              },
+            ),
+          )
+          .toList(growable: false),
+      activities: List.generate(entries.length, (index) {
+        final entry = entries[index];
+        return RenewalPacketActivity(
+          id: entry.activityId.isEmpty ? 'entry-$index' : entry.activityId,
+          title: entry.title,
+          date: entry.date,
+          organizer: entry.organizer,
+          category: entry.category,
+          credits: entry.credits,
+          certificationId: entry.certificationId,
+          hasEvidence: entry.hasEvidence,
+        );
+      }),
+      sourceTitle: qualification.sourceTitle ?? '',
+      sourceUrl: qualification.sourceUrl ?? '',
+      sourceCheckedAt: qualification.sourceCheckedAt == null
+          ? ''
+          : _formatJapaneseDate(qualification.sourceCheckedAt!),
+      generatedAt: DateTime.now(),
+    );
+  }
+
+  Future<({List<RenewalPacketEvidenceFile> files, Set<String> unavailableIds})>
+  _loadPacketEvidence(List<CreditBreakdownEntry> entries) async {
+    final controller = widget.controller;
+    final files = <RenewalPacketEvidenceFile>[];
+    final unavailableIds = <String>{};
+    final loadedIds = <String>{};
+    var loadedBytes = 0;
+    for (final entry in entries) {
+      if (!entry.hasEvidence || entry.activityId.isEmpty) continue;
+      if (!loadedIds.add(entry.activityId)) continue;
+      final path = entry.attachmentPath;
+      if (controller == null || path == null || path.trim().isEmpty) {
+        if (!_qualification.isDemo) unavailableIds.add(entry.activityId);
+        continue;
+      }
+      try {
+        final attachment = await controller.loadActivityAttachment(path);
+        final bytes = attachment?.bytes;
+        if (attachment == null || bytes == null || bytes.isEmpty) {
+          unavailableIds.add(entry.activityId);
+          continue;
+        }
+        if (loadedBytes + bytes.length >
+            RenewalPacketService.maxEvidenceBytes) {
+          unavailableIds.add(entry.activityId);
+          continue;
+        }
+        loadedBytes += bytes.length;
+        files.add(
+          RenewalPacketEvidenceFile(
+            activityId: entry.activityId,
+            fileName: attachment.displayName,
+            bytes: bytes,
+          ),
+        );
+      } on Object {
+        unavailableIds.add(entry.activityId);
+      }
+    }
+    return (files: files, unavailableIds: unavailableIds);
+  }
+
   @override
   Widget build(BuildContext context) {
     final qualification = _qualification;
     final status = _statusStyle(qualification.state);
-    final creditEntries = qualification.isDemo
-        ? creditBreakdownByQualification[qualification.name] ?? const []
-        : qualification.creditEntries;
+    final creditEntries = _displayCreditEntries;
     return Scaffold(
       appBar: AppBar(
         title: const Text('資格の詳細'),
         backgroundColor: _canvas,
         actions: [
+          if (_exportingPacket)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              tooltip: '更新申請パケット',
+              onPressed: _showRenewalPacketSheet,
+              icon: const Icon(Icons.archive_outlined),
+            ),
           IconButton(
             tooltip: '編集',
             onPressed: widget.controller != null && qualification.id.isNotEmpty
@@ -4109,6 +4697,8 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                 const SizedBox(height: 18),
                 _DeadlineRow(qualification: qualification),
                 const SizedBox(height: 12),
+                _RenewalReadinessCard(qualification: qualification),
+                const SizedBox(height: 12),
                 _PointForecastCard(qualification: qualification),
                 if (qualification.licenseNumber.isNotEmpty ||
                     qualification.memberId.isNotEmpty ||
@@ -4128,6 +4718,12 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                 else ...[
                   _OfficialRuleSummary(qualification: qualification),
                   const SizedBox(height: 10),
+                  if (qualification.ruleChangeMessages.isNotEmpty) ...[
+                    _RuleChangeImpactCard(
+                      messages: qualification.ruleChangeMessages,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                 ],
                 ...qualification.requirements.map(
                   (requirement) => Padding(
@@ -4238,6 +4834,35 @@ class _QualificationDetailScreenState extends State<QualificationDetailScreen> {
                         onTap: qualification.sourceUrl == null
                             ? null
                             : () => _showEvidenceSheet(context, qualification),
+                      ),
+                      const Divider(height: 1, indent: 76),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 5,
+                        ),
+                        leading: const _IconTile(
+                          icon: Icons.archive_outlined,
+                          color: _success,
+                          background: _successSoft,
+                        ),
+                        title: const Text(
+                          '更新申請パケット',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: const Text('PDFまたは証憑ファイル付きZIPを保存'),
+                        trailing: _exportingPacket
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : const Icon(Icons.chevron_right_rounded),
+                        onTap: _exportingPacket
+                            ? null
+                            : _showRenewalPacketSheet,
                       ),
                     ],
                   ),
@@ -4421,6 +5046,70 @@ class _RuleFactChip extends StatelessWidget {
   }
 }
 
+class _RuleChangeImpactCard extends StatelessWidget {
+  const _RuleChangeImpactCard({required this.messages});
+
+  final List<String> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      key: const ValueKey('rule-change-impact-card'),
+      color: _warningSoft,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.notification_important_outlined, color: _warning),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '更新要件の変更・あなたへの影響',
+                    style: TextStyle(
+                      color: _warningInk,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...messages.map(
+              (message) => Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 7),
+                      child: Icon(Icons.circle, size: 6, color: _warning),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: const TextStyle(color: _warningInk, height: 1.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              '新要件で現在の記録を再計算しています。申請前に公式資料を確認してください。',
+              style: TextStyle(color: _inkSoft, fontSize: 12, height: 1.45),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _OfficialConditionsCard extends StatelessWidget {
   const _OfficialConditionsCard({required this.qualification});
 
@@ -4510,33 +5199,19 @@ class _DeadlineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _line),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const _IconTile(
-            icon: Icons.event_outlined,
-            color: _primary,
-            background: _primarySoft,
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
               children: [
-                const Text(
-                  '次回の更新期限',
-                  style: TextStyle(color: _inkSoft, fontSize: 14),
-                ),
-                const SizedBox(height: 2),
+                Icon(Icons.event_outlined, color: _primary, size: 22),
+                SizedBox(width: 8),
                 Text(
-                  qualification.deadline,
-                  style: const TextStyle(
+                  '更新に関わる3つの期限',
+                  style: TextStyle(
                     color: _ink,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -4544,17 +5219,284 @@ class _DeadlineRow extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _DeadlineItem(
+              label: '資格有効期限',
+              value: qualification.deadline,
+              isNext:
+                  qualification.nextDeadlineDate != null &&
+                  qualification.nextDeadlineLabel == '資格有効期限',
+              remainingDays: qualification.remainingDays,
+            ),
+            const Divider(height: 20),
+            _DeadlineItem(
+              label: '単位算入期限',
+              value: qualification.creditDeadline,
+              isNext:
+                  qualification.nextDeadlineDate != null &&
+                  qualification.nextDeadlineLabel == '単位算入期限',
+              remainingDays: qualification.remainingDays,
+            ),
+            const Divider(height: 20),
+            _DeadlineItem(
+              label: '更新申請締切',
+              value: qualification.applicationDeadline,
+              supporting: qualification.applicationStartDate == '未登録'
+                  ? '受付開始日は未登録'
+                  : '受付開始 ${qualification.applicationStartDate}',
+              isNext:
+                  qualification.nextDeadlineDate != null &&
+                  qualification.nextDeadlineLabel == '更新申請締切',
+              remainingDays: qualification.remainingDays,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeadlineItem extends StatelessWidget {
+  const _DeadlineItem({
+    required this.label,
+    required this.value,
+    required this.isNext,
+    required this.remainingDays,
+    this.supporting,
+  });
+
+  final String label;
+  final String value;
+  final String? supporting;
+  final bool isNext;
+  final int remainingDays;
+
+  @override
+  Widget build(BuildContext context) {
+    final registered = value != '未登録';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          isNext ? Icons.schedule_rounded : Icons.circle_outlined,
+          size: 20,
+          color: isNext ? _warning : _inkSoft,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(color: _inkSoft, fontSize: 13),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  color: registered ? _ink : _inkSoft,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (supporting != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  supporting!,
+                  style: const TextStyle(color: _inkSoft, fontSize: 12),
+                ),
+              ],
+            ],
           ),
-          if (qualification.deadline != '未登録')
-            Text(
-              qualification.remainingDays >= 0
-                  ? 'あと${qualification.remainingDays}日'
-                  : '${-qualification.remainingDays}日超過',
-              style: const TextStyle(
-                color: _danger,
-                fontWeight: FontWeight.w700,
+        ),
+        if (isNext && registered)
+          _MiniPill(
+            label: remainingDays >= 0
+                ? 'あと$remainingDays日'
+                : '${-remainingDays}日超過',
+            emphasized: remainingDays >= 0,
+          ),
+      ],
+    );
+  }
+}
+
+class _RenewalReadinessCard extends StatelessWidget {
+  const _RenewalReadinessCard({required this.qualification});
+
+  final Qualification qualification;
+
+  @override
+  Widget build(BuildContext context) {
+    final readiness = qualification.readinessAt();
+    final evidence = qualification.evidenceSummary;
+    final color = readiness.isReady ? _success : _warning;
+    return Card(
+      key: const ValueKey('renewal-readiness-card'),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _IconTile(
+                  icon: readiness.isReady
+                      ? Icons.task_alt_rounded
+                      : Icons.assignment_outlined,
+                  color: color,
+                  background: readiness.isReady ? _successSoft : _warningSoft,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '申請準備チェック',
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        readiness.isReady
+                            ? '登録内容上、申請準備が整っています'
+                            : '${readiness.attentionCount + readiness.pendingCount}項目の確認が必要です',
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '${readiness.completedCount}/${readiness.checks.length}',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color:
+                    evidence.missingEvidence == 0 &&
+                        evidence.confirmedActivities > 0
+                    ? _successSoft
+                    : _neutralSoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '証憑充足率',
+                          style: TextStyle(
+                            color: _ink,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        evidence.confirmedActivities == 0
+                            ? '未算定'
+                            : '${(evidence.coverage * 100).round()}%',
+                        style: TextStyle(
+                          color:
+                              evidence.missingEvidence == 0 &&
+                                  evidence.confirmedActivities > 0
+                              ? _success
+                              : _warning,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      value: evidence.coverage,
+                      minHeight: 8,
+                      backgroundColor: _track,
+                      color:
+                          evidence.missingEvidence == 0 &&
+                              evidence.confirmedActivities > 0
+                          ? _success
+                          : _warning,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    evidence.confirmedActivities == 0
+                        ? '確定実績を登録すると算定されます'
+                        : '${evidence.attachedEvidence}/${evidence.confirmedActivities}件に証憑を添付・未添付${evidence.missingEvidence}件',
+                    style: const TextStyle(color: _inkSoft, fontSize: 13),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 12),
+            ...readiness.checks.map(
+              (check) => _ReadinessCheckRow(check: check),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '最終的な申請可否は、必ず認定団体の公式サイトで確認してください。',
+              style: TextStyle(color: _inkSoft, fontSize: 12, height: 1.45),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadinessCheckRow extends StatelessWidget {
+  const _ReadinessCheckRow({required this.check});
+
+  final PreparationCheck check;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color) = switch (check.state) {
+      PreparationCheckState.complete => (Icons.check_circle_rounded, _success),
+      PreparationCheckState.attention => (Icons.error_rounded, _warning),
+      PreparationCheckState.pending => (Icons.help_outline_rounded, _inkSoft),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 9),
+          SizedBox(
+            width: 72,
+            child: Text(
+              check.label,
+              style: const TextStyle(color: _ink, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              check.detail,
+              style: const TextStyle(color: _inkSoft, height: 1.4),
+            ),
+          ),
         ],
       ),
     );
@@ -4724,6 +5666,29 @@ class _MembershipCard extends StatelessWidget {
               ),
               onTap: () => _openPortal(context),
             ),
+          if (qualification.memberPortalUrl.isNotEmpty) ...[
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 13, 16, 15),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.shield_outlined, color: _success, size: 20),
+                  SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      '学会サイトのパスワードは保存しません。公式サイトで直接入力してください。',
+                      style: TextStyle(
+                        color: _inkSoft,
+                        fontSize: 13,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -4747,6 +5712,10 @@ class _QualificationEditDialogState extends State<_QualificationEditDialog> {
   late final TextEditingController _memberIdController;
   late final TextEditingController _portalController;
   late final TextEditingController _deadlineController;
+  late final TextEditingController _creditDeadlineController;
+  late final TextEditingController _applicationStartController;
+  late final TextEditingController _applicationDeadlineController;
+  late String _membershipFeeStatus;
 
   @override
   void initState() {
@@ -4764,6 +5733,19 @@ class _QualificationEditDialogState extends State<_QualificationEditDialog> {
       text: qualification.memberPortalUrl,
     );
     _deadlineController = TextEditingController(text: qualification.deadline);
+    _creditDeadlineController = TextEditingController(
+      text: qualification.creditDeadline,
+    );
+    _applicationStartController = TextEditingController(
+      text: qualification.applicationStartDate,
+    );
+    _applicationDeadlineController = TextEditingController(
+      text: qualification.applicationDeadline,
+    );
+    _membershipFeeStatus =
+        membershipFeeStatuses.contains(qualification.membershipFeeStatus)
+        ? qualification.membershipFeeStatus
+        : membershipFeeUnconfirmed;
   }
 
   @override
@@ -4774,6 +5756,9 @@ class _QualificationEditDialogState extends State<_QualificationEditDialog> {
     _memberIdController.dispose();
     _portalController.dispose();
     _deadlineController.dispose();
+    _creditDeadlineController.dispose();
+    _applicationStartController.dispose();
+    _applicationDeadlineController.dispose();
     super.dispose();
   }
 
@@ -4788,6 +5773,10 @@ class _QualificationEditDialogState extends State<_QualificationEditDialog> {
         memberId: _memberIdController.text.trim(),
         memberPortalUrl: _portalController.text.trim(),
         deadline: _deadlineController.text.trim(),
+        creditDeadline: _creditDeadlineController.text.trim(),
+        applicationStartDate: _applicationStartController.text.trim(),
+        applicationDeadline: _applicationDeadlineController.text.trim(),
+        membershipFeeStatus: _membershipFeeStatus,
       ),
     );
   }
@@ -4823,16 +5812,60 @@ class _QualificationEditDialogState extends State<_QualificationEditDialog> {
             TextField(
               controller: _portalController,
               keyboardType: TextInputType.url,
-              decoration: const InputDecoration(labelText: '学会会員サイトURL（任意）'),
+              decoration: const InputDecoration(
+                labelText: '学会会員サイトURL（任意）',
+                helperText: 'パスワードは入力・保存しません',
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: _deadlineController,
               keyboardType: TextInputType.datetime,
               decoration: const InputDecoration(
-                labelText: '次回更新期限',
+                labelText: '資格有効期限',
                 hintText: 'YYYY/MM/DD',
               ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _creditDeadlineController,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '単位算入期限（任意）',
+                hintText: 'YYYY/MM/DD',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _applicationStartController,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '申請受付開始日（任意）',
+                hintText: 'YYYY/MM/DD',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _applicationDeadlineController,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(
+                labelText: '更新申請締切（任意）',
+                hintText: 'YYYY/MM/DD',
+              ),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: _membershipFeeStatus,
+              decoration: const InputDecoration(labelText: '年会費の状況'),
+              items: membershipFeeStatuses
+                  .map(
+                    (status) =>
+                        DropdownMenuItem(value: status, child: Text(status)),
+                  )
+                  .toList(growable: false),
+              onChanged: (value) {
+                if (value != null) setState(() => _membershipFeeStatus = value);
+              },
             ),
           ],
         ),
@@ -5095,6 +6128,10 @@ class CreditBreakdownCard extends StatelessWidget {
                       children: [
                         _MiniPill(label: entry.eventType),
                         _MiniPill(label: entry.category, emphasized: true),
+                        _MiniPill(
+                          label: entry.hasEvidence ? '証憑あり' : '証憑未添付',
+                          emphasized: entry.hasEvidence,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 9),
@@ -7516,7 +8553,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ログアウトしますか？'),
-        content: const Text('クラウド上の資格・実績データは削除されません。次回ログイン時に再同期できます。'),
+        content: const Text(
+          'クラウド上の資格・実績データは削除されません。'
+          'この端末で別のアカウントにログインしても、それぞれのデータは分けて保存されます。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -7615,6 +8655,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  subtitle: const Text('別のアカウントに切り替えるときもここから'),
                   onTap: _confirmSignOut,
                 ),
               ],
@@ -8634,7 +9675,10 @@ void _showCreditBreakdownDetail(
                 children: [
                   _BreakdownDetailRow(label: '単位区分', value: entry.category),
                   const Divider(height: 1, indent: 16, endIndent: 16),
-                  const _BreakdownDetailRow(label: '証明書', value: '登録済み'),
+                  _BreakdownDetailRow(
+                    label: '証憑',
+                    value: entry.hasEvidence ? '添付済み' : '未添付・要確認',
+                  ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   _BreakdownDetailRow(label: '反映先', value: qualification.name),
                 ],

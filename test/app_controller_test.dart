@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medlicense/data/app_controller.dart';
 import 'package:medlicense/data/app_state.dart';
+import 'package:medlicense/services/auth_service.dart';
 
 void main() {
   test('setup, activities, and settings update the app state', () async {
@@ -13,11 +14,14 @@ void main() {
       deadline: '2027/12/31',
       memberId: 'JSS-24680',
       memberPortalUrl: 'https://example.jp/member',
+      creditDeadline: '2027/11/30',
+      applicationStartDate: '2027/10/01',
+      applicationDeadline: '2027/12/15',
+      membershipFeeStatus: membershipFeePaid,
     );
 
-    expect(await controller.bindToAccount('firebase-user-1'), isTrue);
+    await controller.activateAccount('firebase-user-1');
     expect(controller.snapshot.accountId, 'firebase-user-1');
-    expect(await controller.bindToAccount('firebase-user-2'), isFalse);
 
     await controller.completeSetup(
       displayName: '田中 太郎',
@@ -83,6 +87,13 @@ void main() {
     expect(points.projected, 6);
     expect(points.currentByCategory['医療安全講習'], 1);
     expect(points.plannedByCategory['学術集会参加'], 5);
+    final evidence = controller.snapshot.evidenceForQualification(
+      'qualification-1',
+    );
+    expect(evidence.confirmedActivities, 1);
+    expect(evidence.attachedEvidence, 1);
+    expect(evidence.missingEvidence, 0);
+    expect(evidence.plannedActivities, 1);
 
     await controller.updateActivity(plannedActivity.copyWith(status: '確定'));
     final confirmedPoints = controller.snapshot.pointsForQualification(
@@ -90,12 +101,25 @@ void main() {
     );
     expect(confirmedPoints.current, 6);
     expect(confirmedPoints.planned, 0);
+    final confirmedEvidence = controller.snapshot.evidenceForQualification(
+      'qualification-1',
+    );
+    expect(confirmedEvidence.confirmedActivities, 2);
+    expect(confirmedEvidence.attachedEvidence, 1);
+    expect(confirmedEvidence.missingEvidence, 1);
 
     final restored = AppSnapshot.fromJson(controller.snapshot.toJson());
     expect(restored.qualifications.single.memberId, 'JSS-24680');
     expect(
       restored.qualifications.single.memberPortalUrl,
       'https://example.jp/member',
+    );
+    expect(restored.qualifications.single.creditDeadline, '2027/11/30');
+    expect(restored.qualifications.single.applicationStartDate, '2027/10/01');
+    expect(restored.qualifications.single.applicationDeadline, '2027/12/15');
+    expect(
+      restored.qualifications.single.membershipFeeStatus,
+      membershipFeePaid,
     );
     expect(restored.activities.first.allocations.single.credits, 5);
     expect(restored.activities.last.certificationId, '2608230101');
@@ -111,6 +135,60 @@ void main() {
 
     expect(controller.snapshot.settings.deadlineNotifications, isFalse);
     expect(controller.snapshot.settings.deviceLock, isTrue);
+  });
+
+  test('accounts keep separate data on the same device', () async {
+    final controller = AppController.memory();
+    const qualification = StoredQualification(
+      id: 'qualification-1',
+      name: '外科専門医',
+      organization: '日本外科学会',
+      licenseNumber: '',
+      deadline: '2027/12/31',
+    );
+
+    await controller.activateAccount('firebase-user-1');
+    await controller.completeSetup(
+      displayName: '田中 太郎',
+      qualifications: const [qualification],
+      notificationsEnabled: false,
+    );
+
+    await controller.activateAccount('firebase-user-2');
+    expect(controller.isSetupComplete, isFalse);
+    expect(controller.snapshot.qualifications, isEmpty);
+    await controller.completeSetup(
+      displayName: '鈴木 花子',
+      qualifications: const [qualification],
+      notificationsEnabled: false,
+    );
+
+    await controller.activateAccount('firebase-user-1');
+    expect(controller.snapshot.displayName, '田中 太郎');
+    await controller.activateAccount('firebase-user-2');
+    expect(controller.snapshot.displayName, '鈴木 花子');
+  });
+
+  test('data entered before signing in moves to the first account', () async {
+    final controller = AppController.memory();
+    await controller.completeSetup(
+      displayName: '田中 太郎',
+      qualifications: const [],
+      notificationsEnabled: false,
+    );
+
+    final result = await controller.connectAuthenticatedAccount(
+      const BypassAuthService(),
+      const AuthUser(id: 'firebase-user-1'),
+    );
+
+    expect(result.isConnected, isTrue);
+    expect(controller.snapshot.accountId, 'firebase-user-1');
+    expect(controller.snapshot.displayName, '田中 太郎');
+
+    await controller.activateAccount('firebase-user-2');
+    expect(controller.isSetupComplete, isFalse);
+    expect(controller.snapshot.displayName, isEmpty);
   });
 
   test('old activities are attributed only when one qualification exists', () {
